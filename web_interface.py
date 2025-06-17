@@ -227,6 +227,14 @@ def serve_output(filename):
     """Serve files from the output directory."""
     return send_from_directory(output_dir, filename)
 
+@app.route('/styles.css')
+def serve_css():
+    return send_from_directory('templates', 'style.css', mimetype='text/css')
+
+@app.route('/script.js')
+def serve_js():
+    return send_from_directory('templates', 'script.js', mimetype='application/javascript')
+
 @app.route('/status', methods=['GET'])
 def status():
     """Get status of orchestrator and services"""
