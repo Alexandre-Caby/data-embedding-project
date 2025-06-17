@@ -1,10 +1,17 @@
 from flask import Flask, render_template, request, jsonify, session, url_for, send_from_directory
 import os
-import base64
+import logging
+import traceback
 from orchestrator import AIServicesOrchestrator
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '1234'
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("web_interface")
 
 # Initialize the orchestrator
 orchestrator = None
@@ -12,13 +19,39 @@ output_dir = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(os.path.join(output_dir, "images"), exist_ok=True)
 
-def init_orchestrator():
+def init_orchestrator(force=False):
+    """Initialize the orchestrator with more robust error handling"""
     global orchestrator
+    
+    if orchestrator is not None and not force:
+        logger.info("Using existing orchestrator instance")
+        return True
+    
     try:
+        logger.info("Initializing orchestrator...")
         orchestrator = AIServicesOrchestrator()
+        
+        # Verify services are available
+        services = list(orchestrator.services.keys())
+        logger.info(f"Orchestrator initialized with services: {', '.join(services)}")
+        
+        # Verify RAG service specifically
+        if "rag" in orchestrator.services:
+            rag = orchestrator.services["rag"]
+            if hasattr(rag, 'vector_store') and hasattr(rag.vector_store, 'chunks'):
+                num_chunks = len(rag.vector_store.chunks)
+                logger.info(f"RAG loaded with {num_chunks} document chunks")
+            else:
+                logger.warning("RAG service initialized but no chunks loaded")
+        
+        # Verify web search service
+        if "web_search" in orchestrator.services:
+            logger.info(f"Web search service available using provider: {orchestrator.services['web_search'].provider}")
+        
         return True
     except Exception as e:
-        print(f"Error initializing orchestrator: {e}")
+        logger.error(f"Error initializing orchestrator: {e}")
+        logger.error(traceback.format_exc())
         return False
 
 @app.route('/')
@@ -33,18 +66,58 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    if not orchestrator:
-        if not init_orchestrator():
-            return jsonify({"error": "Failed to initialize orchestrator"}), 500
-            
-    data = request.json
-    message = data.get('message', '')
-    if not message:
-        return jsonify({"error": "No message provided"}), 400
+    """Enhanced chat endpoint with better error handling"""
+    global orchestrator
     
+    # Ensure orchestrator is initialized
+    if orchestrator is None:
+        success = init_orchestrator()
+        if not success:
+            logger.error("Failed to initialize orchestrator")
+            return jsonify({
+                "context": "Sorry, I'm having trouble connecting to the required services. Please try again later.",
+                "error": "Orchestrator initialization failed"
+            }), 500
+    
+    # Get message from request
     try:
-        # Process query through orchestrator
+        data = request.json
+        message = data.get('message', '').strip()
+        if not message:
+            return jsonify({"error": "No message provided"}), 400
+    except Exception as e:
+        logger.error(f"Error parsing request: {e}")
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    # Process the message
+    try:
+        logger.info(f"Processing query: {message[:50]}{'...' if len(message) > 50 else ''}")
+        
+        # Check if this is a search query
+        if message.lower().startswith(('search web', 'search for', 'find online')):
+            logger.info("Detected web search query")
+            
+            # Extract the search query
+            search_query = message
+            for prefix in ["search web", "search for", "find online"]:
+                if search_query.lower().startswith(prefix):
+                    search_query = search_query[len(prefix):].strip()
+                    break
+            
+            # Direct call to web search for reliability
+            if "web_search" in orchestrator.services:
+                logger.info(f"Calling web_search service directly with query: {search_query}")
+                web_results = orchestrator.services["web_search"].search(search_query)
+                
+                return jsonify({
+                    "context": f"Here are search results for '{search_query}':",
+                    "web_results": web_results,
+                    "retrieved_chunks": []
+                })
+        
+        # Process through orchestrator for non-search queries
         result = orchestrator.process_query(message)
+        logger.info(f"Query processed with services: {', '.join(result['results'].keys())}")
         
         # Prepare the response
         response = {
@@ -60,19 +133,20 @@ def chat():
             rag_result = result["results"]["rag"]
             response["context"] = rag_result.get("context", "No answer found")
             response["retrieved_chunks"] = rag_result.get("retrieved_chunks", [])
+            logger.info(f"RAG found {len(response['retrieved_chunks'])} relevant chunks")
         
-        # Handle image generation results
+        # Handle other types of results (image, web search, etc.)
         if "image_generation" in result["results"]:
+            # Process image results...
             img_result = result["results"]["image_generation"]
             if img_result.get("success") and "filepath" in img_result:
                 # Get relative path for the image
-                rel_path = os.path.relpath(img_result["filepath"], os.path.dirname(__file__))
-                img_url = url_for('static', filename=rel_path.replace('\\', '/')) if "static" in rel_path else f"/output/{os.path.basename(img_result['filepath'])}"
+                filename = os.path.basename(img_result["filepath"])
                 response["images"].append({
-                    "url": img_url,
+                    "url": f"/output/{filename}",
                     "prompt": img_result.get("prompt", "")
                 })
-                response["context"] = f"I've generated an image based on your request: '{img_result.get('prompt', '')}'"
+                response["context"] = f"I've generated an image based on your request"
         
         # Handle web search results
         if "web_search" in result["results"]:
@@ -80,6 +154,7 @@ def chat():
             if isinstance(web_results, list):
                 response["web_results"] = web_results
                 response["context"] = f"I found {len(web_results)} results from the web for your query."
+                logger.info(f"Web search found {len(web_results)} results")
         
         # Handle OS operations
         if "os_operations" in result["results"]:
@@ -89,8 +164,52 @@ def chat():
                 response["context"] = os_result["message"]
         
         return jsonify(response)
+    
     except Exception as e:
-        print(f"Error processing request: {e}")
+        logger.error(f"Error processing request: {e}")
+        logger.error(traceback.format_exc())
+        
+        # Try to reinitialize the orchestrator on failure
+        try:
+            init_orchestrator(force=True)
+        except:
+            pass
+        
+        return jsonify({
+            "context": "Sorry, I encountered an error processing your request. Please try again.",
+            "error": str(e)
+        }), 500
+
+@app.route('/direct_search', methods=['POST'])
+def direct_search():
+    """Simplified endpoint that only does web search"""
+    global orchestrator
+    
+    if not orchestrator:
+        init_orchestrator()
+    
+    try:
+        data = request.json
+        query = data.get('query', '')
+        if not query:
+            return jsonify({"error": "No query provided"}), 400
+        
+        # Use the web search service directly
+        if "web_search" in orchestrator.services:
+            results = orchestrator.services["web_search"].search(query)
+            return jsonify({
+                "success": True, 
+                "results": results,
+                "message": f"Found {len(results)} results"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Web search service not available"
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in direct search: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/reset', methods=['POST'])
@@ -108,59 +227,28 @@ def serve_output(filename):
     """Serve files from the output directory."""
     return send_from_directory(output_dir, filename)
 
-@app.route('/generate_image', methods=['POST'])
-def generate_image():
-    """Direct endpoint for image generation."""
+@app.route('/status', methods=['GET'])
+def status():
+    """Get status of orchestrator and services"""
     if not orchestrator:
-        if not init_orchestrator():
-            return jsonify({"error": "Failed to initialize orchestrator"}), 500
+        success = init_orchestrator()
+        if not success:
+            return jsonify({"status": "error", "message": "Failed to initialize orchestrator"}), 500
     
-    data = request.json
-    prompt = data.get('prompt', '')
-    if not prompt:
-        return jsonify({"error": "No prompt provided"}), 400
-    
-    options = data.get('options', {})
-    
-    try:
-        result = orchestrator.generate_image(prompt, options)
-        if result["success"] and "data" in result and "filepath" in result["data"]:
-            # Get relative path for the image
-            filename = os.path.basename(result["data"]["filepath"])
-            return jsonify({
-                "success": True,
-                "image_url": f"/output/{filename}",
-                "message": result["message"]
-            })
+    services = {}
+    for name, service in orchestrator.services.items():
+        if name == "rag" and hasattr(service.vector_store, "chunks"):
+            services[name] = {
+                "status": "active",
+                "chunks": len(service.vector_store.chunks)
+            }
         else:
-            return jsonify({
-                "success": False,
-                "message": result.get("message", "Unknown error")
-            })
-    except Exception as e:
-        print(f"Error generating image: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/search_web', methods=['POST'])
-def search_web():
-    """Direct endpoint for web search."""
-    if not orchestrator:
-        if not init_orchestrator():
-            return jsonify({"error": "Failed to initialize orchestrator"}), 500
+            services[name] = {"status": "active"}
     
-    data = request.json
-    query = data.get('query', '')
-    if not query:
-        return jsonify({"error": "No query provided"}), 400
-    
-    num_results = data.get('num_results', 5)
-    
-    try:
-        result = orchestrator.search_web(query, num_results)
-        return jsonify(result)
-    except Exception as e:
-        print(f"Error searching web: {e}")
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "status": "ok",
+        "services": services
+    })
 
 if __name__ == "__main__":
     init_orchestrator()
