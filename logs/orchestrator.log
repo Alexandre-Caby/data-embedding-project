@@ -20,3 +20,130 @@
 2025-06-17 15:25:33,974 - orchestrator - INFO - Service image_generation shut down properly
 2025-06-17 15:25:33,974 - orchestrator - INFO - Service web_search shut down properly
 2025-06-17 15:25:33,974 - orchestrator - INFO - Service os_operations shut down properly
+2025-06-17 15:51:30,332 - orchestrator - INFO - Loaded RAG data from data
+2025-06-17 15:51:30,334 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 15:51:30,334 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 15:51:30,334 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 15:51:30,334 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 15:51:30,334 - orchestrator - INFO - Orchestrator initialized with services: rag, image_generation, web_search, os_operations
+2025-06-17 15:51:41,290 - orchestrator - INFO - Loaded RAG data from data
+2025-06-17 15:51:41,290 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 15:51:41,290 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 15:51:41,290 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 15:51:41,290 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 15:51:41,290 - orchestrator - INFO - Orchestrator initialized with services: rag, image_generation, web_search, os_operations
+2025-06-17 16:17:41,570 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:17:41,570 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 16:17:41,570 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 16:17:41,570 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:17:41,570 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:17:41,570 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:20:31,236 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:20:31,236 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 16:20:31,236 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 16:20:31,236 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:20:31,236 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:20:31,236 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:20:36,136 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:20:36,137 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 16:20:36,137 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 16:20:36,137 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:20:36,137 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:20:36,137 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:23:28,099 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:23:29,806 - orchestrator.image_generation - ERROR - Error initializing local image generation: Cannot load model stable-diffusion-xl-base-1.0: model is not cached locally and an error occurred while trying to fetch metadata from the Hub. Please check out the root cause in the stacktrace above.
+2025-06-17 16:23:29,806 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 16:23:29,806 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:23:29,806 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:23:29,806 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:23:37,365 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:23:38,247 - orchestrator.image_generation - ERROR - Error initializing local image generation: Cannot load model stable-diffusion-xl-base-1.0: model is not cached locally and an error occurred while trying to fetch metadata from the Hub. Please check out the root cause in the stacktrace above.
+2025-06-17 16:23:38,247 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 16:23:38,248 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:23:38,248 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:23:38,248 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:53:36,434 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:53:37,194 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 16:53:37,195 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 16:53:37,195 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:53:37,195 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:53:37,195 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 16:53:42,172 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 16:53:42,723 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 16:53:42,724 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 16:53:42,724 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 16:53:42,724 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 16:53:42,724 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:05:35,805 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:05:36,839 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 17:05:36,839 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:05:36,839 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:05:36,839 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:05:36,839 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:05:44,159 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:05:44,315 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 17:05:44,315 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:05:44,315 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:05:44,316 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:05:44,316 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:06:18,867 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:06:19,067 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 17:06:19,067 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:06:19,067 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:06:19,067 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:06:19,067 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:06:23,380 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:06:23,531 - orchestrator.huggingface_image - WARNING - API validation returned status 403
+2025-06-17 17:06:23,531 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:06:23,532 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:06:23,532 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:06:23,532 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:07:03,458 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:07:03,651 - orchestrator.huggingface_image - WARNING - API validation returned status 400
+2025-06-17 17:07:03,651 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:07:03,651 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:07:03,651 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:07:03,651 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:07:07,960 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:07:08,155 - orchestrator.huggingface_image - WARNING - API validation returned status 400
+2025-06-17 17:07:08,155 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:07:08,155 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:07:08,155 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:07:08,155 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:27:18,396 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:27:18,586 - orchestrator.huggingface_image - WARNING - API validation returned status 400
+2025-06-17 17:27:18,587 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:27:18,587 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:27:18,587 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:27:18,587 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:27:56,969 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:27:57,160 - orchestrator.huggingface_image - WARNING - API validation returned status 400
+2025-06-17 17:27:57,161 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:27:57,161 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:27:57,161 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:27:57,161 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:28:17,146 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:28:17,146 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:28:17,146 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:28:17,146 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:28:17,146 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:28:55,243 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:28:55,243 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:28:55,243 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:28:55,243 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:28:55,243 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:30:04,609 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:30:04,609 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:30:04,609 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:30:04,609 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:30:04,609 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:30:08,964 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:30:08,964 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:30:08,964 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:30:08,964 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:30:08,964 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 17:33:11,217 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 17:33:11,218 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 17:33:11,218 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 17:33:11,218 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 17:33:11,218 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations

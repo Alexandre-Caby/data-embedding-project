@@ -7,10 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Import your existing components
 from rag_pipeline import create_rag_pipeline, RAGPipeline
-from services.image_generation import ImageGenerationService
+from services.image_generation import HuggingFaceImageService, ImageGenerationRequest
 from services.web_search import WebSearchService
 from services.os_operations import OSOperationsService
-
 class AIServicesOrchestrator:
     """
     Central orchestrator for coordinating various AI services:
@@ -50,10 +49,17 @@ class AIServicesOrchestrator:
                         "data_dir": "data"
                     },
                     "image_generation": {
-                        "enabled": True,
-                        "provider": "local", 
-                        "model": "stable-diffusion-xl-base-1.0",
-                        "api_key": ""
+                    "enabled": True,
+                    "provider": "huggingface",  # Changé de "local" à "huggingface"
+                    "api_key": "",  # À remplir avec votre clé HF
+                    "model": "stable-diffusion-xl",  # Modèle par défaut
+                    "available_models": [
+                        "stable-diffusion-xl",
+                        "stable-diffusion-2.1",
+                        "openjourney",
+                        "dreamlike-anime",
+                        "realistic-vision"
+                    ]
                     },
                     "web_search": {
                         "enabled": True,
@@ -131,15 +137,21 @@ class AIServicesOrchestrator:
         if self.config.get("image_generation", {}).get("enabled", False):
             try:
                 img_config = self.config.get("image_generation", {})
-                self.services["image_generation"] = ImageGenerationService(
-                    provider=img_config.get("provider", "local"),
-                    model=img_config.get("model", "stable-diffusion-xl-base-1.0"),
-                    api_key=img_config.get("api_key", "")
+                api_key = img_config.get("api_key", "")
+                print(api_key)
+
+                if not api_key:
+                    self.logger.warning("No Hugging Face API key provided. Image generation will be disabled.")
+                    return
+
+                self.services["image_generation"] = HuggingFaceImageService(
+                    api_key=api_key,
+                    default_model=img_config.get("model", "stable-diffusion-xl")
                 )
-                self.logger.info(f"Initialized Image Generation service with provider: {img_config.get('provider')}")
+                self.logger.info(
+                    f"Initialized Hugging Face Image Generation service with model: {img_config.get('model')}")
             except Exception as e:
-                self.logger.error(f"Failed to initialize Image Generation service: {e}")
-        
+                self.logger.error(f"Failed to initialize Hugging Face Image Generation service: {e}")
         # Initialize Web Search
         if self.config.get("web_search", {}).get("enabled", False):
             try:
@@ -277,15 +289,15 @@ class AIServicesOrchestrator:
             self.logger.error(f"Data ingestion error: {e}")
         
         return result
-    
+
     def generate_image(self, prompt: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Generate an image from a text prompt.
-        
+        Generate an image from a text prompt using Hugging Face.
+
         Args:
             prompt: Text description of the image to generate
             options: Additional options for image generation
-        
+
         Returns:
             Dict containing the generated image information
         """
@@ -295,12 +307,20 @@ class AIServicesOrchestrator:
                 "message": "Image generation service not available",
                 "data": None
             }
-        
+
         try:
-            result = self.services["image_generation"].generate_image(prompt, options)
+            # Utiliser la nouvelle interface
+            if hasattr(self.services["image_generation"], 'generate_image_simple'):
+                # Méthode compatible avec votre ancien code
+                result = self.services["image_generation"].generate_image_simple(prompt, options)
+            else:
+                # Fallback vers l'ancienne méthode si nécessaire
+                result = self.services["image_generation"].generate_image(prompt, options)
+
             return {
-                "success": True,
-                "message": "Image generated successfully",
+                "success": result.get("success", False),
+                "message": "Image generated successfully" if result.get("success") else result.get("error",
+                                                                                                   "Unknown error"),
                 "data": result
             }
         except Exception as e:
