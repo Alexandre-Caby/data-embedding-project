@@ -416,6 +416,119 @@
             font-size: 0.7rem;
             color: var(--gray-medium);
         }
+
+        /* Web Search Results Styling */
+        .web-results {
+            margin-top: 1.5rem;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--gray-light);
+            background-color: white;
+        }
+
+        .web-results-header {
+            padding: 0.75rem 1rem;
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .web-results-header svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .web-result-item {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--gray-light);
+            transition: background-color 0.2s;
+        }
+
+        .web-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .web-result-item:hover {
+            background-color: #f8faff;
+        }
+
+        .web-result-title {
+            font-weight: 600;
+            color: #1a0dab;
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .web-result-title a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .web-result-title a:hover {
+            text-decoration: underline;
+        }
+
+        .web-result-url {
+            font-size: 0.8rem;
+            color: #006621;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .web-result-favicon {
+            width: 16px;
+            height: 16px;
+            object-fit: contain;
+        }
+
+        .web-result-snippet {
+            font-size: 0.9rem;
+            color: #545454;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .web-result-source {
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--gray-medium);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .web-result-date {
+            color: var(--gray-medium);
+        }
+
+        .no-results {
+            padding: 2rem;
+            text-align: center;
+            color: var(--gray-medium);
+        }
+
+        .search-query {
+            font-style: italic;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -456,7 +569,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </button>
                     <button class="action-icon" id="systemInfoBtn" title="System Info">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x="8" y="21" x2="16" y2="21"></line><line x="12" y1="17" x2="12" y2="21"></line></svg>
                     </button>
                 </div>
             </div>
@@ -521,7 +634,20 @@
             
             document.getElementById('webSearchBtn').addEventListener('click', function(e) {
                 e.preventDefault();
-                messageInput.value = "Search the web for: ";
+                
+                // Get the input field
+                const messageInput = document.getElementById('messageInput');
+                const currentText = messageInput.value;
+                
+                // If the input already starts with a search phrase, use it directly
+                if (currentText.toLowerCase().startsWith("search web") || 
+                    currentText.toLowerCase().startsWith("search for")) {
+                    sendMessage(); // Use the normal send button function
+                    return;
+                }
+                
+                // Otherwise, format as a search command
+                messageInput.value = "Search web for: " + (currentText || "");
                 messageInput.focus();
             });
             
@@ -654,22 +780,70 @@
                 // Process web results
                 let webResultsHtml = '';
                 if (webResults && webResults.length > 0) {
-                    webResultsHtml = '<div class="web-results">';
+                    webResultsHtml = `
+                        <div class="web-results">
+                            <div class="web-results-header">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                Search Results (${webResults.length})
+                            </div>
+                    `;
+                    
                     webResults.forEach(result => {
+                        const domain = result.url.split('/')[2] || '';
+                        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                        
+                        // Clean the URL before inserting it
+                        const cleanUrl = result.url.trim().replace(/\s+/g, '');
+                        
                         webResultsHtml += `
                             <div class="web-result-item">
-                                <div class="web-result-title">${escapeHtml(result.title)}</div>
-                                <div class="web-result-url">${escapeHtml(result.url)}</div>
-                                <div class="web-result-snippet">${escapeHtml(result.snippet)}</div>
+                                <div class="web-result-title">
+                                    <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" data-original-url="${cleanUrl}">
+                                        ${escapeHtml(result.title)}
+                                    </a>
+                                </div>
+                                <div class="web-result-url">
+                                    <img src="${faviconUrl}" alt="favicon" class="web-result-favicon" onerror="this.style.display='none'">
+                                    ${escapeHtml(domain)}
+                                </div>
+                                <div class="web-result-snippet">
+                                    ${escapeHtml(result.snippet)}
+                                </div>
+                                <div class="web-result-source">
+                                    <span>Source: ${escapeHtml(result.source || 'Web')}</span>
+                                </div>
                             </div>
                         `;
                     });
-                    webResultsHtml += '</div>';
+                    
+                    webResultsHtml += `</div>`;
+                } else if (message.toLowerCase().includes('search results') && webResults && webResults.length === 0) {
+                    webResultsHtml = `
+                        <div class="web-results">
+                            <div class="web-results-header">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                Search Results
+                            </div>
+                            <div class="no-results">
+                                No results found for your search.
+                            </div>
+                        </div>
+                    `;
                 }
                 
                 messageElement.innerHTML = `
                     <div>
-                        <div class="message-content">${formatMessage(message)}</div>
+                        <div class="message-content">${formatMessage(message)
+                            .replace(/for '([^']+)':/g, function(match, query) {
+                                return `'<span class="search-query">${query}</span>'`;
+                            })
+                        }</div>
                         ${sourcesHtml}
                         ${sourcesDropdownHtml}
                         ${imagesHtml}
@@ -749,6 +923,82 @@
                 formattedMessage = formattedMessage.replace(/\n/g, '<br>');
                 
                 return formattedMessage;
+            }
+        });
+        
+        // Optional: Add a direct search function for more reliability
+        function performDirectSearch(query) {
+            // Add user message
+            addUserMessage(`Search web for: ${query}`);
+            
+            // Show typing indicator
+            addTypingIndicator();
+            
+            // Call the direct search endpoint
+            fetch('/direct_search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                removeTypingIndicator();
+                
+                if (data.success && data.results && data.results.length > 0) {
+                    addAssistantMessage(
+                        `Here are search results for "${query}":`,
+                        [],
+                        [],
+                        data.results
+                    );
+                } else {
+                    addAssistantMessage(
+                        `I couldn't find any results for "${query}"`,
+                        [], [], []
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                removeTypingIndicator();
+                addAssistantMessage("Sorry, I encountered an error searching the web.", [], [], []);
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('.web-result-title a');
+            if (target) {
+                e.preventDefault();
+                
+                // Try to get the clean URL from the data attribute first
+                let url = target.getAttribute('data-original-url');
+                
+                // Fallback to href if data attribute is not available
+                if (!url) {
+                    url = target.getAttribute('href');
+                }
+                
+                // Clean the URL by removing spaces and fixing encoding issues
+                url = url.trim()
+                        .replace(/\s+/g, '')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#039;/g, "'")
+                        .replace(/%20+/g, '');
+                
+                // Ensure URL has proper protocol
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url.replace(/^[\/\\]+/, '');
+                }
+                
+                console.log('Opening URL:', url);
+                
+                // Open the URL in a new tab
+                window.open(url, '_blank', 'noopener,noreferrer');
             }
         });
     </script>
