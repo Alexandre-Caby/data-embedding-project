@@ -29,17 +29,30 @@ class InMemoryVectorStore(VectorStore):
 
         query_vector = np.array(query_embedding)
         
-        # Calculate cosine similarities
-        similarities = np.dot(self.embeddings, query_vector) / (
-            np.linalg.norm(self.embeddings, axis=1) * np.linalg.norm(query_vector)
-        )
+        # Handle potential division by zero
+        norms = np.linalg.norm(self.embeddings, axis=1)
+        query_norm = np.linalg.norm(query_vector)
+        
+        if query_norm == 0:
+            return []
+        
+        # Avoid division by zero for chunk embeddings
+        valid_indices = norms > 0
+        if not np.any(valid_indices):
+            return []
+        
+        # Calculate cosine similarities only for valid embeddings
+        similarities = np.zeros(len(self.chunks))
+        similarities[valid_indices] = np.dot(
+            self.embeddings[valid_indices], query_vector
+        ) / (norms[valid_indices] * query_norm)
         
         # Get top-k indices
         top_indices = np.argsort(similarities)[-top_k:][::-1]
         
         results = []
         for rank, idx in enumerate(top_indices):
-            if idx < len(self.chunks):
+            if idx < len(self.chunks) and similarities[idx] > 0:
                 result = SearchResult(
                     chunk=self.chunks[idx],
                     score=float(similarities[idx]),
@@ -71,8 +84,12 @@ class InMemoryVectorStore(VectorStore):
             np.save(os.path.join(path, 'embeddings.npy'), self.embeddings)
 
     def load(self, path: str) -> None:
+        chunks_file = os.path.join(path, 'chunks.json')
+        if not os.path.exists(chunks_file):
+            return
+            
         # Load chunks
-        with open(os.path.join(path, 'chunks.json'), 'r', encoding='utf-8') as f:
+        with open(chunks_file, 'r', encoding='utf-8') as f:
             chunks_data = json.load(f)
         
         self.chunks = []

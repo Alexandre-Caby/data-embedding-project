@@ -69,24 +69,60 @@ def run_chat_session(orchestrator):
         print("\nThinking...")
         
         try:
-            # Process query
+            # Check for specific commands first
+            if any(cmd in user_query.lower() for cmd in ['recherche', 'search web', 'search for', 'find online']):
+                # This is a web search request
+                search_query = user_query
+                for prefix in ["recherche sur le web", "recherche", "search web for", "search web", "search for", "find online"]:
+                    if search_query.lower().startswith(prefix):
+                        search_query = search_query[len(prefix):].strip()
+                        break
+                
+                search_query = search_query.lstrip(',').strip()
+                
+                if "web_search" in orchestrator.services:
+                    print(f"\nSearching the web for: {search_query}")
+                    web_results = orchestrator.services["web_search"].search(search_query)
+                    
+                    if web_results:
+                        print(f"\nFound {len(web_results)} web results:")
+                        for i, res in enumerate(web_results[:5], 1):
+                            print(f"\n{i}. {res.get('title', 'No title')}")
+                            print(f"   URL: {res.get('url', 'No URL')}")
+                            print(f"   {res.get('snippet', 'No snippet')[:150]}...")
+                    else:
+                        print("\nNo web results found.")
+                else:
+                    print("\nWeb search service not available.")
+                continue
+            
+            # For general queries, use the orchestrator
             result = orchestrator.process_query(user_query)
             
-            # Extract results
+            # Handle RAG responses
             if "rag" in result["results"]:
                 rag_result = result["results"]["rag"]
-                print("\nAI Assistant:")
-                print(rag_result.get("context", "No answer found"))
+                response_text = rag_result.get("context", "No answer found")
                 
-                # Show sources
+                # Don't show the default "insufficient information" message for simple greetings
+                if "suffisamment d'informations" in response_text and any(greeting in user_query.lower() for greeting in ['hello', 'hi', 'bonjour', 'salut']):
+                    print("\nAI Assistant:")
+                    print("Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?")
+                else:
+                    print("\nAI Assistant:")
+                    print(response_text)
+                
+                # Only show sources if they're actually relevant (not the default response)
                 chunks = rag_result.get("retrieved_chunks", [])
-                sources = set()
-                for chunk in chunks:
-                    if chunk.get("metadata") and "source_document" in chunk["metadata"]:
-                        sources.add(chunk["metadata"]["source_document"])
-                
-                if sources:
-                    print("\nSources:", ", ".join(sources))
+                if chunks and not "suffisamment d'informations" in response_text:
+                    sources = set()
+                    for chunk in chunks:
+                        source = chunk.get("source", chunk.get("metadata", {}).get("source_document", ""))
+                        if source and source != "unknown":
+                            sources.add(source)
+                    
+                    if sources:
+                        print(f"\nSources: {', '.join(list(sources)[:3])}")
             
             # Handle image generation
             if "image_generation" in result["results"]:
@@ -94,7 +130,7 @@ def run_chat_session(orchestrator):
                 if img_result.get("success") and "filepath" in img_result:
                     print(f"\nImage generated: {img_result['filepath']}")
             
-            # Handle web search
+            # Handle web search results
             if "web_search" in result["results"]:
                 web_results = result["results"]["web_search"]
                 if isinstance(web_results, list) and web_results:
