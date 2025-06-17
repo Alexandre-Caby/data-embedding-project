@@ -1,1 +1,4 @@
-*gguf
+*.gguf
+# folder logs, output
+output/
+logs/*
