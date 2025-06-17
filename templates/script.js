@@ -274,18 +274,21 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             
             webResults.forEach(result => {
-                const url = result.url?.trim() || '#';
+                let url = result.url?.trim() || '#';
                 const title = result.title || 'Sans titre';
                 const snippet = result.snippet || 'Aucune description disponible';
+                
+                // Clean and fix the URL
+                url = cleanUrl(url);
                 
                 content += `
                     <div class="web-result-item">
                         <div class="web-result-title">
-                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-clean-url="${escapeHtml(url)}">
                                 ${escapeHtml(title)}
                             </a>
                         </div>
-                        <div class="web-result-url">${escapeHtml(url)}</div>
+                        <div class="web-result-url">${escapeHtml(displayUrl(url))}</div>
                         <div class="web-result-snippet">${escapeHtml(snippet)}</div>
                     </div>
                 `;
@@ -362,15 +365,74 @@ document.addEventListener('DOMContentLoaded', function() {
         return formatted;
     }
     
+    function cleanUrl(url) {
+        if (!url || url === '#') return '#';
+        
+        // Remove HTML entities and extra spaces
+        let cleanedUrl = url
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .replace(/%20+/g, '') // Remove encoded spaces
+            .replace(/\s+/g, '') // Remove any remaining spaces
+            .trim();
+        
+        // If URL doesn't start with protocol, add https://
+        if (!cleanedUrl.startsWith('http://') && !cleanedUrl.startsWith('https://')) {
+            // Remove any leading slashes or weird characters
+            cleanedUrl = cleanedUrl.replace(/^[\/\\]+/, '');
+            cleanedUrl = 'https://' + cleanedUrl;
+        }
+        
+        // Additional cleaning for malformed URLs
+        cleanedUrl = cleanedUrl.replace(/https?:\/\/\s+/, 'https://');
+        
+        return cleanedUrl;
+    }
+    
+    function displayUrl(url) {
+        // For display purposes, show a cleaner version
+        return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+
     // Initialize
     updateSendButton();
 });
 
-// Handle URL clicks for web results - updated to work without data attribute
+// Enhanced URL click handler
 document.addEventListener('click', function(e) {
     const target = e.target.closest('.web-result-title a');
     if (target) {
-        // Let the browser handle the link normally since we set proper href
-        return true;
+        e.preventDefault();
+        
+        // Get the cleaned URL
+        let url = target.getAttribute('data-clean-url') || target.getAttribute('href');
+        
+        // Additional cleaning just in case
+        url = url.trim()
+            .replace(/^https?:\/\/\s+/, 'https://')
+            .replace(/%20+/g, '')
+            .replace(/\s+/g, '');
+        
+        // Validate URL format
+        try {
+            new URL(url);
+            console.log('Opening cleaned URL:', url);
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (error) {
+            console.error('Invalid URL:', url, error);
+            // Try to construct a valid URL
+            const fallbackUrl = url.replace(/^[^a-zA-Z]*/, 'https://');
+            try {
+                new URL(fallbackUrl);
+                console.log('Opening fallback URL:', fallbackUrl);
+                window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+            } catch (fallbackError) {
+                console.error('Could not open URL:', url);
+                alert('Sorry, this URL appears to be malformed and cannot be opened.');
+            }
+        }
     }
 });
