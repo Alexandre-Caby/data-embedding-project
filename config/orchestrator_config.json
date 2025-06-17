@@ -1,0 +1,27 @@
+{
+  "rag": {
+    "enabled": true,
+    "embedding_model": "all-MiniLM-L6-v2",
+    "chunk_size": 200,
+    "chunk_overlap": 50,
+    "data_dir": "data"
+  },
+  "image_generation": {
+    "enabled": true,
+    "provider": "local",
+    "model": "stable-diffusion-xl-base-1.0",
+    "api_key": ""
+  },
+  "web_search": {
+    "enabled": true,
+    "provider": "duckduckgo",
+    "api_key": "",
+    "results_limit": 5
+  },
+  "os_operations": {
+    "enabled": true,
+    "allow_file_operations": true,
+    "allow_process_execution": false,
+    "restricted_paths": []
+  }
+}

@@ -1,0 +1,22 @@
+2025-06-17 15:00:53,199 - orchestrator - INFO - Loaded RAG data from data
+2025-06-17 15:00:53,202 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 15:00:53,202 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 15:00:53,202 - orchestrator - INFO - Initialized Web Search service with provider: custom
+2025-06-17 15:00:53,203 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 15:00:53,203 - orchestrator - INFO - Orchestrator initialized with services: rag, image_generation, web_search, os_operations
+2025-06-17 15:01:08,813 - orchestrator - INFO - Loaded RAG data from data
+2025-06-17 15:01:08,814 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 15:01:08,814 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 15:01:08,815 - orchestrator - INFO - Initialized Web Search service with provider: custom
+2025-06-17 15:01:08,815 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 15:01:08,815 - orchestrator - INFO - Orchestrator initialized with services: rag, image_generation, web_search, os_operations
+2025-06-17 15:25:33,724 - orchestrator - INFO - Loaded RAG data from data
+2025-06-17 15:25:33,727 - orchestrator.image_generation - WARNING - Required packages for local image generation not found. Install with: pip install torch diffusers transformers accelerate
+2025-06-17 15:25:33,727 - orchestrator - INFO - Initialized Image Generation service with provider: local
+2025-06-17 15:25:33,727 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 15:25:33,727 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 15:25:33,728 - orchestrator - INFO - Orchestrator initialized with services: rag, image_generation, web_search, os_operations
+2025-06-17 15:25:33,972 - orchestrator - INFO - Service rag shut down properly
+2025-06-17 15:25:33,974 - orchestrator - INFO - Service image_generation shut down properly
+2025-06-17 15:25:33,974 - orchestrator - INFO - Service web_search shut down properly
+2025-06-17 15:25:33,974 - orchestrator - INFO - Service os_operations shut down properly
