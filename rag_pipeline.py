@@ -166,9 +166,17 @@ class RAGPipeline:
         context_chunks = [result.chunk.content for result in search_results[:3]]
         context = "\n\n".join([f"Document {i+1}: {content}" for i, content in enumerate(context_chunks)])
         
+        # Handle greetings and simple queries without requiring context
+        greeting_words = ['hello', 'hi', 'bonjour', 'salut', 'bonsoir', 'comment allez-vous']
+        if any(word in query.lower() for word in greeting_words) and len(query.split()) <= 3:
+            return {
+                "context": "Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?",
+                "retrieved_chunks": []
+            }
+        
         if not context_chunks:
             return {
-                "context": "Je n'ai pas trouvé d'information pertinente pour répondre à votre question.",
+                "context": "Je n'ai pas trouvé d'information pertinente dans ma base de données pour répondre à votre question. Pourriez-vous reformuler votre question ou être plus spécifique ?",
                 "retrieved_chunks": []
             }
         
@@ -177,31 +185,32 @@ class RAGPipeline:
         
         # System message with instructions
         system_message = """<no_thinking>
-You are a precise, helpful, and knowledgeable assistant with expertise in retrieving and analyzing information. 
-Your answers must be based exclusively on the provided context. Follow these guidelines:
+Vous êtes un assistant IA précis et utile. Votre tâche est de répondre aux questions en utilisant UNIQUEMENT les informations fournies dans les documents de référence.
 
-1. Answer the user's question using ONLY the information in the reference documents.
-2. If the information needed is not in the references, respond with: "Je n'ai pas suffisamment d'informations pour répondre à cette question."
-3. Do not use prior knowledge or make assumptions beyond what's explicitly stated in the references.
-4. Cite the specific Document number(s) you used in your response (e.g., "D'après le Document 2...").
-5. Be concise but thorough, organizing complex information in a clear structure.
-6. Maintain a neutral, informative tone.
-7. Respond in French unless specified otherwise."""
+Règles importantes :
+1. Répondez à la question en utilisant SEULEMENT les informations des documents fournis
+2. Si l'information nécessaire n'est pas dans les références, dites : "Je n'ai pas suffisamment d'informations dans les documents fournis pour répondre à cette question."
+3. Citez les numéros de documents que vous utilisez (ex: "D'après le Document 1...")
+4. Soyez concis mais complet
+5. Organisez clairement les informations complexes
+6. Maintenez un ton informatif et neutre
+7. Répondez en français sauf indication contraire"""
         
         messages.append({"role": "system", "content": system_message})
         
         # Add conversation history if enabled
         if use_history and self.conversation_history:
-            for entry in self.conversation_history[-3:]:  # Include up to 3 most recent exchanges
+            for entry in self.conversation_history[-2:]:  # Include up to 2 most recent exchanges
                 messages.append({"role": "user", "content": entry[0]})
                 messages.append({"role": "assistant", "content": entry[1]})
         
         # Add current context and query
-        user_message = f"""## REFERENCE INFORMATION:
+        user_message = f"""## DOCUMENTS DE RÉFÉRENCE :
 {context}
 
-Please answer the following question based ONLY on the information provided above:
-{query}"""
+Question : {query}
+
+Répondez en vous basant UNIQUEMENT sur les documents ci-dessus :"""
         
         messages.append({"role": "user", "content": user_message})
         
@@ -210,9 +219,9 @@ Please answer the following question based ONLY on the information provided abov
             response = self.openai_client.chat.completions.create(
                 model=self.openai_model,
                 messages=messages,
-                temperature=0.7,
-                max_tokens=500,
-                stream=False  # Disable streaming for faster response
+                temperature=0.3,  # Lower temperature for more focused responses
+                max_tokens=400,
+                stream=False
             )
             
             response_text = response.choices[0].message.content.strip()
@@ -233,46 +242,10 @@ Please answer the following question based ONLY on the information provided abov
             }
         except Exception as e:
             print(f"Error with OpenAI API: {str(e)}")
-            print("Falling back to HuggingFace model if available")
             
-            # Fallback to HuggingFace model if available
-            if self.llm:
-                prompt = f"""You are a precise, helpful assistant. Answer based only on this information:
-
-## REFERENCE INFORMATION:
-{context}
-
-## QUESTION:
-{query}
-
-## ANSWER:"""
-                
-                response = self.llm(prompt, max_length=512, 
-                                   do_sample=True, temperature=0.7)
-                
-                response_text = response[0]['generated_text']
-                
-                # Extract only the model's answer (remove the prompt)
-                if "## ANSWER:" in response_text:
-                    response_text = response_text.split("## ANSWER:")[1].strip()
-                
-                # Update conversation history
-                if use_history:
-                    self.conversation_history.append((query, response_text))
-                
-                return {
-                    "context": response_text,
-                    "retrieved_chunks": [
-                        {"content": result.chunk.content, 
-                         "score": float(result.score), 
-                         "source": result.chunk.metadata.get("source_document", "unknown") if result.chunk.metadata else "unknown",
-                         "metadata": result.chunk.metadata if result.chunk.metadata else {}}
-                        for result in search_results
-                    ]
-                }
-            
+            # Fallback to simple response
             return {
-                "context": f"Erreur lors de la génération de la réponse: {str(e)}",
+                "context": f"Désolé, j'ai rencontré une erreur lors de la génération de la réponse. Veuillez réessayer.",
                 "retrieved_chunks": [
                     {"content": result.chunk.content, 
                      "score": float(result.score), 
@@ -281,7 +254,7 @@ Please answer the following question based ONLY on the information provided abov
                     for result in search_results
                 ]
             }
-    
+
     def chat(self, message: str, top_k: int = 5) -> str:
         """Simple chat interface that returns just the response text."""
         response = self.generate_response(message, top_k, use_history=True)
@@ -328,6 +301,33 @@ Please answer the following question based ONLY on the information provided abov
         print(f"Pipeline loaded from {load_path}")
 
 # Factory function for easy pipeline creation
+def create_rag_pipeline(
+    embedding_model: str = "all-MiniLM-L6-v2",
+    chunk_size: int = 200,
+    chunk_overlap: int = 50,
+    output_dir: str = "data",
+    local_model_path: Optional[str] = None,
+    openai_api_base: str = "http://127.0.0.1:8080/",
+    openai_api_key: str = "1234",
+    openai_model: str = "qwen2.5-7b-instruct-q3_k_m"
+) -> RAGPipeline:
+    """Factory function to create a RAG pipeline with common configurations."""
+    config = RAGConfig()
+    config.embedding.model_name = embedding_model
+    config.chunking.words_per_chunk = chunk_size
+    config.chunking.overlap = chunk_overlap
+    config.output_directory = output_dir
+    
+    pipeline = RAGPipeline(config, local_model_path)
+    
+    # Configure OpenAI client
+    pipeline.openai_client = OpenAI(
+        api_key=openai_api_key,
+        base_url=openai_api_base
+    )
+    pipeline.openai_model = openai_model
+    
+    return pipeline
 def create_rag_pipeline(
     embedding_model: str = "all-MiniLM-L6-v2",
     chunk_size: int = 200,

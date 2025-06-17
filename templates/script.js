@@ -6,17 +6,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyState = document.getElementById('emptyState');
     
     let isWaitingForResponse = false;
-    
-    // Track selected service
     let selectedService = null;
+    
+    // Check if elements exist
+    if (!messagesContainer || !messageInput || !sendButton) {
+        console.error('Required DOM elements not found');
+        return;
+    }
     
     // Auto-resize the textarea
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
         
-        // Enable send button if there's text or a service is selected
-        sendButton.disabled = !this.value.trim() && !selectedService;
+        // Enable send button if there's text
+        updateSendButton();
     });
     
     // Send message when Enter key is pressed (without Shift)
@@ -31,175 +35,159 @@ document.addEventListener('DOMContentLoaded', function() {
     sendButton.addEventListener('click', sendMessage);
     
     // Clear chat history
-    clearButton.addEventListener('click', function() {
-        // Send a request to reset the conversation
-        fetch('/reset_conversation', {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            messagesContainer.innerHTML = '';
-            showEmptyState();
-        })
-        .catch(error => {
-            console.error('Error:', error);
+    if (clearButton) {
+        clearButton.addEventListener('click', function() {
+            fetch('/reset_conversation', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                messagesContainer.innerHTML = '';
+                showEmptyState();
+            })
+            .catch(error => {
+                console.error('Error resetting conversation:', error);
+            });
         });
-    });
-    
-    // Update event listeners for action buttons
-    document.getElementById('imageGenBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event bubbling
-        toggleService('image');
-    });
-    
-    document.getElementById('webSearchBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event bubbling
-        toggleService('web_search');
-    });
-    
-    document.getElementById('systemInfoBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event bubbling
-        toggleService('system');
-    });
-    
-    // Create separate direct search function for web search button
-    function performWebSearch() {
-        // Get the input field value
-        const query = messageInput.value.trim() || "";
-        
-        // Add appropriate web search prefix if needed
-        const searchQuery = selectedService === 'web_search' && query
-            ? query
-            : `Search the web for: ${query || "latest news"}`;
-        
-        // Set the message input to the search query
-        messageInput.value = searchQuery;
-        
-        // Send the message
-        sendMessage();
     }
     
-    // Toggle service selection
+    // Service button event listeners
+    const serviceButtons = {
+        'imageGenBtn': 'image',
+        'webSearchBtn': 'web_search',
+        'systemInfoBtn': 'system'
+    };
+    
+    Object.keys(serviceButtons).forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleService(serviceButtons[buttonId]);
+            });
+        }
+    });
+    
+    function updateSendButton() {
+        const hasText = messageInput.value.trim().length > 0;
+        sendButton.disabled = !hasText && !selectedService;
+    }
+    
     function toggleService(service) {
-        console.log(`Toggling service: ${service}, currently selected: ${selectedService}`);
-        
         const buttonMap = {
             'image': 'imageGenBtn',
-            'web_search': 'webSearchBtn',
+            'web_search': 'webSearchBtn', 
             'system': 'systemInfoBtn'
         };
         
-        // Get all service buttons
-        const buttons = {
-            'image': document.getElementById('imageGenBtn'),
-            'web_search': document.getElementById('webSearchBtn'),
-            'system': document.getElementById('systemInfoBtn')
-        };
-        
-        // If clicking the same service, deselect it
+        // If same service clicked, deselect
         if (selectedService === service) {
-            console.log(`Deselecting ${service}`);
             selectedService = null;
-            
-            // Remove 'selected' class from the button
-            buttons[service].classList.remove('selected');
-            
-            // Reset placeholder
+            document.getElementById(buttonMap[service]).classList.remove('selected');
             updatePlaceholder();
+            updateSendButton();
             return;
         }
         
-        // Clear all selections first
-        Object.values(buttons).forEach(btn => {
+        // Clear all selections
+        Object.values(buttonMap).forEach(btnId => {
+            const btn = document.getElementById(btnId);
             if (btn) btn.classList.remove('selected');
         });
         
-        // Select the new service
+        // Select new service
         selectedService = service;
-        
-        // Add 'selected' class to the selected button
-        if (buttons[service]) {
-            buttons[service].classList.add('selected');
-            console.log(`Selected ${service} button`);
+        const targetButton = document.getElementById(buttonMap[service]);
+        if (targetButton) {
+            targetButton.classList.add('selected');
         }
         
-        // Focus the input field after selecting a service
-        messageInput.focus();
-        
-        // Update placeholder to indicate the selected service
         updatePlaceholder();
+        updateSendButton();
+        messageInput.focus();
     }
     
-    // Update placeholder based on selected service
     function updatePlaceholder() {
-        const placeholderMap = {
+        const placeholders = {
             'image': 'Describe the image you want to generate...',
             'web_search': 'Enter your web search query...',
             'system': 'Ask for system information...',
             null: 'Type your question here'
         };
         
-        messageInput.placeholder = placeholderMap[selectedService];
+        messageInput.placeholder = placeholders[selectedService] || placeholders[null];
     }
     
     function sendMessage() {
         const message = messageInput.value.trim();
-
-        if ((!message && !selectedService) || isWaitingForResponse) {
+        
+        if (!message && !selectedService) {
             return;
         }
-
+        
+        if (isWaitingForResponse) {
+            return;
+        }
+        
         hideEmptyState();
-
+        
         let processedMessage = message;
-
-        // Adjust message based on selected service if needed
+        
+        // Process message based on selected service
         if (selectedService) {
-            console.log(`Sending with selected service: ${selectedService}`);
-            
             switch(selectedService) {
                 case 'image':
-                    processedMessage = message.startsWith('Generate an image') 
-                        ? message 
-                        : `Generate an image of: ${message || 'a creative abstract design'}`;
+                    processedMessage = message || 'Generate a creative image';
+                    if (!processedMessage.toLowerCase().includes('generate')) {
+                        processedMessage = `Generate image: ${processedMessage}`;
+                    }
                     break;
                     
                 case 'web_search':
-                    processedMessage = message.startsWith('Search web for') || message.startsWith('Search the web for')
-                        ? message
-                        : `Search web for: ${message || 'latest technology trends'}`;
+                    processedMessage = message || 'latest news';
+                    if (!processedMessage.toLowerCase().includes('search')) {
+                        processedMessage = `Search web for: ${processedMessage}`;
+                    }
                     break;
                     
                 case 'system':
-                    processedMessage = message || 'Get system information';
+                    processedMessage = message || 'system info';
                     break;
             }
+            
+            // Clear service selection
+            const buttonMap = {
+                'image': 'imageGenBtn',
+                'web_search': 'webSearchBtn',
+                'system': 'systemInfoBtn'
+            };
+            
+            Object.values(buttonMap).forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                if (btn) btn.classList.remove('selected');
+            });
+            
+            selectedService = null;
+            updatePlaceholder();
         }
-
-        // Add user message to chat
+        
+        // Add user message
         addUserMessage(processedMessage);
-
-        // Clear input and reset selection
+        
+        // Clear input
         messageInput.value = '';
-        messageInput.style.height = '60px';
-
-        // Deselect the current service if one is selected
-        if (selectedService) {
-            const currentService = selectedService;
-            toggleService(currentService); // This will deselect since it's the same service
-        }
-
+        messageInput.style.height = 'auto';
+        updateSendButton();
+        
         // Show typing indicator
         addTypingIndicator();
-
-        // Disable input while waiting
+        
+        // Set waiting state
         isWaitingForResponse = true;
         sendButton.disabled = true;
-
-        // Send message to backend
+        
+        // Send to backend
         fetch('/chat', {
             method: 'POST',
             headers: {
@@ -209,28 +197,23 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            // Remove typing indicator
             removeTypingIndicator();
-            
-            // Add assistant message with all result types
             addAssistantMessage(
-                data.context, 
-                data.retrieved_chunks, 
+                data.context || "No response received", 
+                data.retrieved_chunks || [], 
                 data.images || [], 
                 data.web_results || []
             );
-            
-            // Enable input
-            isWaitingForResponse = false;
-            sendButton.disabled = false;
-            messageInput.focus();
         })
         .catch(error => {
             console.error('Error:', error);
             removeTypingIndicator();
             addAssistantMessage("Sorry, I encountered an error processing your request.", [], [], []);
+        })
+        .finally(() => {
             isWaitingForResponse = false;
-            sendButton.disabled = false;
+            updateSendButton();
+            messageInput.focus();
         });
     }
     
@@ -248,120 +231,71 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageElement = document.createElement('div');
         messageElement.className = 'message assistant-message';
         
-        let sourcesHtml = '';
-        let sourcesDropdownHtml = '';
+        let content = `<div class="message-content">${formatMessage(message)}</div>`;
         
-        // Process sources for RAG results
-        if (chunks && chunks.length > 0) {
-            // Create source pills
-            const uniqueSources = new Set();
-            chunks.forEach(chunk => {
-                if (chunk.metadata && chunk.metadata.source_document) {
-                    uniqueSources.add(chunk.metadata.source_document);
-                }
-            });
+        // Add sources if available and relevant (not for default responses)
+        if (chunks && chunks.length > 0 && !message.includes('suffisamment d\'informations')) {
+            const uniqueSources = [...new Set(chunks.map(chunk => 
+                chunk.metadata?.source_document || chunk.source || ''
+            ).filter(source => source && source !== 'unknown'))];
             
-            if (uniqueSources.size > 0) {
-                sourcesHtml = '<div class="message-sources">';
-                Array.from(uniqueSources).forEach((source, index) => {
-                    sourcesHtml += `<span class="source-item" data-message-id="${Date.now()}">${escapeHtml(source)}</span>`;
+            if (uniqueSources.length > 0) {
+                content += '<div class="message-sources">';
+                content += '<strong>Sources:</strong><br>';
+                uniqueSources.forEach(source => {
+                    content += `<span class="source-item">${escapeHtml(source)}</span>`;
                 });
-                sourcesHtml += '</div>';
+                content += '</div>';
             }
-            
-            // Create detailed sources dropdown
-            sourcesDropdownHtml = `
-                <div class="sources-dropdown" id="sources-${Date.now()}">
-                    <div class="source-header">Sources</div>
-            `;
-            
-            chunks.slice(0, 3).forEach(chunk => {
-                sourcesDropdownHtml += `
-                    <div class="source-content">
-                        ${escapeHtml(chunk.content.substring(0, 200))}${chunk.content.length > 200 ? '...' : ''}
-                        <div class="source-score">Relevance: ${Math.round(chunk.score * 100)}%</div>
-                    </div>
-                `;
-            });
-            
-            sourcesDropdownHtml += '</div>';
         }
         
-        // Process images
-        let imagesHtml = '';
+        // Add images if available
         if (images && images.length > 0) {
             images.forEach(image => {
-                imagesHtml += `
+                content += `
                     <div class="image-result">
-                        <img src="${image.url}" alt="${escapeHtml(image.prompt)}" />
+                        <img src="${image.url}" alt="${escapeHtml(image.prompt || 'Generated image')}" />
                     </div>
                 `;
             });
         }
         
-        // Process web results
-        let webResultsHtml = '';
+        // Add web results if available
         if (webResults && webResults.length > 0) {
-            webResultsHtml = `
+            content += `
                 <div class="web-results">
                     <div class="web-results-header">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
-                        <span>Search Results (${webResults.length})</span>
+                        <span>Résultats de recherche (${webResults.length})</span>
                     </div>
             `;
             
             webResults.forEach(result => {
-                // Clean the URL before using it
-                const cleanUrl = result.url.trim().replace(/\s+/g, '');
-                const domain = cleanUrl.split('/')[2] || '';
+                const url = result.url?.trim() || '#';
+                const title = result.title || 'Sans titre';
+                const snippet = result.snippet || 'Aucune description disponible';
                 
-                webResultsHtml += `
+                content += `
                     <div class="web-result-item">
                         <div class="web-result-title">
-                            <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" data-original-url="${cleanUrl}">
-                                ${escapeHtml(result.title)}
+                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+                                ${escapeHtml(title)}
                             </a>
                         </div>
-                        <div class="web-result-url">
-                            ${escapeHtml(domain)}
-                        </div>
-                        <div class="web-result-snippet">
-                            ${escapeHtml(result.snippet)}
-                        </div>
+                        <div class="web-result-url">${escapeHtml(url)}</div>
+                        <div class="web-result-snippet">${escapeHtml(snippet)}</div>
                     </div>
                 `;
             });
             
-            webResultsHtml += `</div>`;
+            content += '</div>';
         }
         
-        messageElement.innerHTML = `
-            <div>
-                <div class="message-content">${formatMessage(message)}</div>
-                ${sourcesHtml}
-                ${sourcesDropdownHtml}
-                ${imagesHtml}
-                ${webResultsHtml}
-            </div>
-        `;
-        
+        messageElement.innerHTML = content;
         messagesContainer.appendChild(messageElement);
-        
-        // Add event listeners to source items
-        if (chunks && chunks.length > 0) {
-            const sourceItems = messageElement.querySelectorAll('.source-item');
-            const sourcesDropdown = messageElement.querySelector('.sources-dropdown');
-            
-            sourceItems.forEach(item => {
-                item.addEventListener('click', function() {
-                    sourcesDropdown.classList.toggle('active');
-                });
-            });
-        }
-        
         scrollToBottom();
     }
     
@@ -373,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="typing-bubble"></div>
             <div class="typing-bubble"></div>
             <div class="typing-bubble"></div>
-            <span>Assistant is typing</span>
+            <span>Assistant is typing...</span>
         `;
         messagesContainer.appendChild(typingElement);
         scrollToBottom();
@@ -403,6 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return '';
         return unsafe
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -412,42 +347,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function formatMessage(message) {
+        if (typeof message !== 'string') return '';
+        
+        // Escape HTML first
+        let formatted = escapeHtml(message);
+        
         // Convert URLs to links
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-        let formattedMessage = escapeHtml(message).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
         
-        // Convert line breaks to <br>
-        formattedMessage = formattedMessage.replace(/\n/g, '<br>');
+        // Convert line breaks
+        formatted = formatted.replace(/\n/g, '<br>');
         
-        return formattedMessage;
+        return formatted;
     }
+    
+    // Initialize
+    updateSendButton();
 });
 
-// Handle URL clicks for web results
+// Handle URL clicks for web results - updated to work without data attribute
 document.addEventListener('click', function(e) {
     const target = e.target.closest('.web-result-title a');
     if (target) {
-        e.preventDefault();
-        
-        // Get URL from data attribute
-        let url = target.getAttribute('data-original-url');
-        
-        // Clean the URL by removing spaces and encoding issues
-        url = url.trim()
-                .replace(/\s+/g, '')
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"')
-                .replace(/&#039;/g, "'")
-                .replace(/%20+/g, '');
-        
-        // Ensure URL has proper protocol
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'https://' + url.replace(/^[\/\\]+/, '');
-        }
-        
-        // Open the URL in a new tab
-        window.open(url, '_blank', 'noopener,noreferrer');
+        // Let the browser handle the link normally since we set proper href
+        return true;
     }
 });
