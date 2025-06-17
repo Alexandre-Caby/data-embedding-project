@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import json
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 
@@ -12,7 +13,7 @@ from storage import InMemoryVectorStore
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 class RAGPipeline:
-    def __init__(self, config: RAGConfig, local_model_path: Optional[str] = None):
+    def __init__(self, config: RAGConfig, local_model_path: Optional[str] = None, prompt_config_path: Optional[str] = None):
         self.config = config
         self.local_model_path = local_model_path
         self.conversation_history = []
@@ -27,7 +28,42 @@ class RAGPipeline:
         )
         self.openai_model = "qwen2.5-7b-instruct-q3_k_m"
         
+        self.prompt_config = self._load_prompt_config(prompt_config_path)
         self._initialize_components()
+
+    def _load_prompt_config(self, prompt_config_path):
+        # Default prompt if no config file is found
+        default_prompt = {
+            "system_message": (
+                "Vous êtes un assistant IA expert et précis. Votre rôle est de fournir des réponses complètes et utiles en utilisant les documents fournis.\n"
+                "INSTRUCTIONS IMPORTANTES :\n"
+                "1. Analyse approfondie : Lisez attentivement tous les documents fournis\n"
+                "2. Réponse directe : Commencez par répondre directement à la question posée\n"
+                "3. Citations précises : Mentionnez les sources (ex: \"D'après le Document 1...\")\n"
+                "4. Contexte enrichi : Ajoutez des informations contextuelles pertinentes des documents\n"
+                "5. Clarté : Organisez votre réponse de manière claire et structurée\n"
+                "6. Limites : Si les documents ne contiennent pas assez d'informations, dites-le clairement\n"
+                "STYLE DE RÉPONSE :\n"
+                "- Commencez par la réponse principale\n"
+                "- Ajoutez des détails pertinents\n"
+                "- Mentionnez les sources utilisées\n"
+                "- Utilisez un ton informatif mais accessible\n"
+                "- Répondez en français sauf indication contraire\n"
+                "GESTION DES QUESTIONS DIFFICILES :\n"
+                "- Pour les questions factuelles précises (dates, mesures, etc.), cherchez des informations spécifiques\n"
+                "- Pour les questions complexes, décomposez la réponse en plusieurs parties\n"
+                "- Si une information manque, suggérez une recherche web pour compléter"
+            )
+        }
+        if prompt_config_path is None:
+            prompt_config_path = os.path.join(os.path.dirname(__file__), "config", "prompt_config.json")
+        try:
+            if os.path.exists(prompt_config_path):
+                with open(prompt_config_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load prompt config: {e}")
+        return default_prompt
 
     def _initialize_components(self):
         # Initialize data loaders
@@ -158,49 +194,58 @@ class RAGPipeline:
         return self.vector_store.search(query_embedding, top_k)
 
     def generate_response(self, query: str, top_k: int = 5, use_history: bool = True) -> Dict[str, Any]:
-        """Generate a response using the RAG pipeline with local OpenAI API."""
-        # Search for relevant chunks
-        search_results = self.search(query, top_k=top_k)
+        """Generate a response using the RAG pipeline with enhanced query handling."""
+        
+        # Handle greetings and simple queries without requiring context first
+        greeting_words = ['hello', 'hey', 'hi', 'bonjour', 'salut', 'bonsoir', 'comment allez-vous', 'comment ça va']
+        simple_queries = ['qui es-tu', 'what are you', 'que peux-tu faire', 'what can you do', 'aide', 'help']
+        
+        query_lower = query.lower().strip()
+        
+        # Check for greetings
+        if any(word in query_lower for word in greeting_words) and len(query.split()) <= 5:
+            return {
+                "context": "Bonjour ! Je suis votre assistant IA. Je peux répondre à vos questions en me basant sur les documents que j'ai en mémoire, faire des recherches web, générer des images, ou vous donner des informations système. Comment puis-je vous aider ?",
+                "retrieved_chunks": []
+            }
+        
+        # Check for help/capability queries
+        if any(phrase in query_lower for phrase in simple_queries):
+            return {
+                "context": "Je peux vous aider de plusieurs façons :\n• Répondre à vos questions en me basant sur mes documents\n• Faire des recherches sur le web\n• Générer des images à partir de descriptions\n• Fournir des informations système\n\nPosez-moi une question ou utilisez des commandes comme 'search web for...', 'generate image...', etc.",
+                "retrieved_chunks": []
+            }
+        
+        # Improve query with spell correction and expansion
+        enhanced_query = self._enhance_query(query)
+        
+        # Search for relevant chunks with both original and enhanced query
+        search_results = self.search(enhanced_query, top_k=top_k)
+        if not search_results or all(result.score < 0.2 for result in search_results[:3]):
+            # Try with original query if enhanced didn't work
+            search_results = self.search(query, top_k=top_k)
         
         # Extract the content from search results
-        context_chunks = [result.chunk.content for result in search_results[:3]]
+        context_chunks = [result.chunk.content for result in search_results[:3] if result.score > 0.2]
         context = "\n\n".join([f"Document {i+1}: {content}" for i, content in enumerate(context_chunks)])
         
-        # Handle greetings and simple queries without requiring context
-        greeting_words = ['hello', 'hi', 'bonjour', 'salut', 'bonsoir', 'comment allez-vous']
-        if any(word in query.lower() for word in greeting_words) and len(query.split()) <= 3:
+        # If no relevant chunks found, provide a helpful response
+        if not context_chunks or all(result.score < 0.3 for result in search_results[:3]):
             return {
-                "context": "Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?",
+                "context": "Je n'ai pas trouvé d'information pertinente dans ma base de documents pour répondre à votre question. Vous pouvez :\n• Reformuler votre question\n• Utiliser 'search web for [votre question]' pour chercher sur internet\n• Me demander de l'aide avec 'help' pour voir mes capacités",
                 "retrieved_chunks": []
             }
-        
-        if not context_chunks:
-            return {
-                "context": "Je n'ai pas trouvé d'information pertinente dans ma base de données pour répondre à votre question. Pourriez-vous reformuler votre question ou être plus spécifique ?",
-                "retrieved_chunks": []
-            }
-        
+
         # Prepare messages for OpenAI API
         messages = []
         
-        # System message with instructions
-        system_message = """<no_thinking>
-Vous êtes un assistant IA précis et utile. Votre tâche est de répondre aux questions en utilisant UNIQUEMENT les informations fournies dans les documents de référence.
-
-Règles importantes :
-1. Répondez à la question en utilisant SEULEMENT les informations des documents fournis
-2. Si l'information nécessaire n'est pas dans les références, dites : "Je n'ai pas suffisamment d'informations dans les documents fournis pour répondre à cette question."
-3. Citez les numéros de documents que vous utilisez (ex: "D'après le Document 1...")
-4. Soyez concis mais complet
-5. Organisez clairement les informations complexes
-6. Maintenez un ton informatif et neutre
-7. Répondez en français sauf indication contraire"""
-        
+        # Use prompt from config
+        system_message = self.prompt_config.get("system_message", "")
         messages.append({"role": "system", "content": system_message})
         
         # Add conversation history if enabled
         if use_history and self.conversation_history:
-            for entry in self.conversation_history[-2:]:  # Include up to 2 most recent exchanges
+            for entry in self.conversation_history[-2:]:
                 messages.append({"role": "user", "content": entry[0]})
                 messages.append({"role": "assistant", "content": entry[1]})
         
@@ -208,9 +253,17 @@ Règles importantes :
         user_message = f"""## DOCUMENTS DE RÉFÉRENCE :
 {context}
 
-Question : {query}
+## QUESTION À ANALYSER :
+Question originale : {query}
+Question améliorée : {enhanced_query}
 
-Répondez en vous basant UNIQUEMENT sur les documents ci-dessus :"""
+## INSTRUCTIONS SPÉCIALES :
+- Cette question semble porter sur : {self._categorize_query(query)}
+- Recherchez des informations spécifiques dans les documents
+- Si vous trouvez des données pertinentes, présentez-les clairement
+- Si les informations sont incomplètes, mentionnez ce qui manque
+
+Répondez de manière complète et structurée :"""
         
         messages.append({"role": "user", "content": user_message})
         
@@ -219,12 +272,17 @@ Répondez en vous basant UNIQUEMENT sur les documents ci-dessus :"""
             response = self.openai_client.chat.completions.create(
                 model=self.openai_model,
                 messages=messages,
-                temperature=0.3,  # Lower temperature for more focused responses
-                max_tokens=400,
+                temperature=0.2,  # Lower temperature for more precise responses
+                max_tokens=600,   # More tokens for detailed responses
                 stream=False
             )
             
             response_text = response.choices[0].message.content.strip()
+            
+            # Post-process response to add web search suggestion if needed
+            if "je n'ai pas" in response_text.lower() or "information manque" in response_text.lower():
+                if needs_current_info:
+                    response_text += f"\n\n💡 **Suggestion**: Pour obtenir des informations plus récentes ou précises, essayez une recherche web : `search web for {query}`"
             
             # Update conversation history
             if use_history:
@@ -237,15 +295,15 @@ Répondez en vous basant UNIQUEMENT sur les documents ci-dessus :"""
                      "score": float(result.score), 
                      "source": result.chunk.metadata.get("source_document", "unknown") if result.chunk.metadata else "unknown",
                      "metadata": result.chunk.metadata if result.chunk.metadata else {}}
-                    for result in search_results
+                    for result in search_results[:5]  # Include more chunks for reference
                 ]
             }
         except Exception as e:
             print(f"Error with OpenAI API: {str(e)}")
             
-            # Fallback to simple response
+            # Enhanced fallback response
             return {
-                "context": f"Désolé, j'ai rencontré une erreur lors de la génération de la réponse. Veuillez réessayer.",
+                "context": f"Je rencontre une difficulté technique pour analyser votre question '{query}'. Pour cette question qui semble nécessiter des informations précises, je recommande d'utiliser la recherche web : `search web for {query}`",
                 "retrieved_chunks": [
                     {"content": result.chunk.content, 
                      "score": float(result.score), 

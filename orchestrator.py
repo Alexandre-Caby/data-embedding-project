@@ -176,13 +176,6 @@ class AIServicesOrchestrator:
     def process_query(self, query: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Process a user query using appropriate services.
-        
-        Args:
-            query: User query string
-            options: Additional options for processing
-        
-        Returns:
-            Dict containing results from various services
         """
         options = options or {}
         results = {"success": True, "query": query, "results": {}}
@@ -190,16 +183,23 @@ class AIServicesOrchestrator:
         # Determine if this is a command for a specific service
         service_commands = {
             "generate image": "image_generation",
+            "create image": "image_generation", 
+            "make image": "image_generation",
             "search web": "web_search",
             "search for": "web_search",
             "find online": "web_search",
+            "web search": "web_search",
             "file operations": "os_operations",
-            "system info": "os_operations"
+            "system info": "os_operations",
+            "system information": "os_operations"
         }
         
         target_service = None
+        query_lower = query.lower()
+        
+        # Check for specific service commands
         for command, service in service_commands.items():
-            if command in query.lower() and service in self.services:
+            if command in query_lower and service in self.services:
                 target_service = service
                 break
         
@@ -208,9 +208,14 @@ class AIServicesOrchestrator:
             try:
                 if target_service == "image_generation":
                     # Extract the image description
-                    prompt = query.lower().replace("generate image", "").strip()
+                    prompt = query
+                    for prefix in ["generate image", "create image", "make image"]:
+                        if prompt.lower().startswith(prefix):
+                            prompt = prompt[len(prefix):].strip()
+                            break
+                    
                     if not prompt:
-                        prompt = query  # Use the whole query if extraction failed
+                        prompt = "A creative and interesting image"
                     
                     image_result = self.services["image_generation"].generate_image(prompt)
                     results["results"]["image_generation"] = image_result
@@ -218,8 +223,15 @@ class AIServicesOrchestrator:
                 elif target_service == "web_search":
                     # Extract the search query
                     search_query = query
-                    for prefix in ["search web", "search for", "find online"]:
-                        search_query = search_query.lower().replace(prefix, "").strip()
+                    for prefix in ["search web for", "search web", "search for", "find online", "web search"]:
+                        if search_query.lower().startswith(prefix):
+                            search_query = search_query[len(prefix):].strip()
+                            break
+                    
+                    search_query = search_query.lstrip(':').strip()
+                    
+                    if not search_query:
+                        search_query = "latest news"
                     
                     search_results = self.services["web_search"].search(search_query)
                     results["results"]["web_search"] = search_results
@@ -235,10 +247,14 @@ class AIServicesOrchestrator:
                 results["success"] = False
         
         # For general queries or if specific service processing failed, use RAG
-        if "rag" in self.services and (not target_service or not results["success"]):
+        # But only if no specific service was successfully invoked
+        if "rag" in self.services and (not target_service or not results["success"] or not results["results"]):
             try:
                 rag_result = self.services["rag"].generate_response(query)
                 results["results"]["rag"] = rag_result
+                # If RAG was the fallback but we had an error, mark as successful if RAG worked
+                if not results["success"] and rag_result.get("context"):
+                    results["success"] = True
             except Exception as e:
                 self.logger.error(f"Error in RAG service: {e}")
                 results["results"]["rag"] = {"error": str(e)}
