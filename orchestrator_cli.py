@@ -3,217 +3,195 @@ import sys
 import argparse
 from orchestrator import AIServicesOrchestrator
 
-def main():
-    parser = argparse.ArgumentParser(description="AI Services Orchestrator CLI")
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
-    
-    # Chat command
-    chat_parser = subparsers.add_parser("chat", help="Start an interactive chat session")
-    
-    # Ingest command
-    ingest_parser = subparsers.add_parser("ingest", help="Ingest data into the RAG pipeline")
-    ingest_parser.add_argument("--urls", nargs="+", help="URLs to scrape")
-    ingest_parser.add_argument("--files", nargs="+", help="File paths to process")
-    
-    # Image generation command
-    image_parser = subparsers.add_parser("image", help="Generate an image")
-    image_parser.add_argument("prompt", help="Image description")
-    image_parser.add_argument("--width", type=int, default=1024, help="Image width")
-    image_parser.add_argument("--height", type=int, default=1024, help="Image height")
-    
-    # Web search command
-    search_parser = subparsers.add_parser("search", help="Search the web")
-    search_parser.add_argument("query", help="Search query")
-    search_parser.add_argument("--results", type=int, default=5, help="Number of results")
-    
-    # OS command
-    os_parser = subparsers.add_parser("os", help="Execute an OS operation")
-    os_parser.add_argument("operation", help="Operation to execute")
-    
-    # Parse arguments
-    args = parser.parse_args()
-    
-    # Initialize orchestrator
-    print("Initializing orchestrator...")
-    orchestrator = AIServicesOrchestrator()
-    
-    # Execute command
-    if args.command == "chat":
-        run_chat_session(orchestrator)
-    elif args.command == "ingest":
-        run_ingest(orchestrator, args.urls, args.files)
-    elif args.command == "image":
-        run_image_generation(orchestrator, args.prompt, args.width, args.height)
-    elif args.command == "search":
-        run_web_search(orchestrator, args.query, args.results)
-    elif args.command == "os":
-        run_os_operation(orchestrator, args.operation)
-    else:
-        parser.print_help()
-    
-    # Shutdown orchestrator
-    orchestrator.shutdown()
-
-def run_chat_session(orchestrator):
+def run_chat_session(orchestrator_instance=None):
     """Run an interactive chat session."""
-    print("\nChat with the AI services orchestrator! Type 'quit' to exit.\n")
+    if orchestrator_instance:
+        orchestrator = orchestrator_instance
+    else:
+        print("Initializing AI Services Orchestrator...")
+        orchestrator = AIServicesOrchestrator()
+    
+    print("\n" + "="*60)
+    print("🤖 AI Services Orchestrator - Interactive Chat")
+    print("="*60)
+    print("Available commands:")
+    print("• Just ask questions normally")
+    print("• 'search web for [query]' - Web search")
+    print("• 'generate image [description]' - Image generation")
+    print("• 'system info' - System information")
+    print("• 'help' - Show this help")
+    print("• 'reset' - Clear conversation history")
+    print("• 'quit' or 'exit' - Exit chat")
+    print("="*60)
     
     while True:
-        user_query = input("\nYou: ")
-        if user_query.lower() in ['quit', 'exit', 'q']:
-            break
-            
-        if not user_query.strip():
-            continue
-            
-        print("\nThinking...")
-        
         try:
-            # Check for specific commands first
-            if any(cmd in user_query.lower() for cmd in ['recherche', 'search web', 'search for', 'find online']):
-                # This is a web search request
-                search_query = user_query
-                for prefix in ["recherche sur le web", "recherche", "search web for", "search web", "search for", "find online"]:
-                    if search_query.lower().startswith(prefix):
-                        search_query = search_query[len(prefix):].strip()
-                        break
+            user_input = input("\n🧑 You: ").strip()
+            
+            if not user_input:
+                continue
                 
-                search_query = search_query.lstrip(',').strip()
+            if user_input.lower() in ['quit', 'exit', 'bye']:
+                print("\n👋 Goodbye!")
+                break
                 
-                if "web_search" in orchestrator.services:
-                    print(f"\nSearching the web for: {search_query}")
-                    web_results = orchestrator.services["web_search"].search(search_query)
-                    
-                    if web_results:
-                        print(f"\nFound {len(web_results)} web results:")
-                        for i, res in enumerate(web_results[:5], 1):
-                            print(f"\n{i}. {res.get('title', 'No title')}")
-                            print(f"   URL: {res.get('url', 'No URL')}")
-                            print(f"   {res.get('snippet', 'No snippet')[:150]}...")
-                    else:
-                        print("\nNo web results found.")
-                else:
-                    print("\nWeb search service not available.")
+            if user_input.lower() == 'reset':
+                orchestrator.reset_services()
+                print("\n🔄 Conversation history reset!")
+                continue
+                
+            if user_input.lower() in ['help', 'aide']:
+                print("\n📋 Available services:")
+                print("• RAG: Ask questions about loaded documents")
+                print("• Web Search: 'search web for [query]'")
+                print("• Image Generation: 'generate image [description]'")
+                print("• System Info: 'system info'")
                 continue
             
-            # For general queries, use the orchestrator
-            result = orchestrator.process_query(user_query)
+            print("\n🤔 Thinking...")
             
-            # Handle RAG responses
-            if "rag" in result["results"]:
+            # Process the query through the orchestrator
+            result = orchestrator.process_query(user_input)
+            
+            if not result.get("success", True):
+                print(f"\n❌ Error: {result.get('message', 'Unknown error')}")
+                continue
+            
+            # Handle different types of results
+            response_shown = False
+            
+            # RAG response
+            if "rag" in result.get("results", {}):
                 rag_result = result["results"]["rag"]
-                response_text = rag_result.get("context", "No answer found")
-                
-                # Don't show the default "insufficient information" message for simple greetings
-                if "suffisamment d'informations" in response_text and any(greeting in user_query.lower() for greeting in ['hello', 'hi', 'bonjour', 'salut']):
-                    print("\nAI Assistant:")
-                    print("Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?")
-                else:
-                    print("\nAI Assistant:")
-                    print(response_text)
-                
-                # Only show sources if they're actually relevant (not the default response)
-                chunks = rag_result.get("retrieved_chunks", [])
-                if chunks and not "suffisamment d'informations" in response_text:
-                    sources = set()
-                    for chunk in chunks:
-                        source = chunk.get("source", chunk.get("metadata", {}).get("source_document", ""))
-                        if source and source != "unknown":
-                            sources.add(source)
+                if "context" in rag_result:
+                    print(f"\n🤖 AI Assistant:\n{rag_result['context']}")
                     
-                    if sources:
-                        print(f"\nSources: {', '.join(list(sources)[:3])}")
+                    # Show sources if available
+                    chunks = rag_result.get("retrieved_chunks", [])
+                    if chunks and not rag_result['context'].startswith("Je n'ai pas"):
+                        print(f"\n📚 Sources utilisées ({len(chunks)} documents):")
+                        for i, chunk in enumerate(chunks[:3], 1):
+                            source = chunk.get('metadata', {}).get('source_document', 'Source inconnue')
+                            score = chunk.get('score', 0)
+                            print(f"  {i}. {source} (score: {score:.3f})")
+                    response_shown = True
             
-            # Handle image generation
-            if "image_generation" in result["results"]:
-                img_result = result["results"]["image_generation"]
-                if img_result.get("success") and "filepath" in img_result:
-                    print(f"\nImage generated: {img_result['filepath']}")
-            
-            # Handle web search results
-            if "web_search" in result["results"]:
+            # Web search results
+            if "web_search" in result.get("results", {}):
                 web_results = result["results"]["web_search"]
                 if isinstance(web_results, list) and web_results:
-                    print(f"\nFound {len(web_results)} web results:")
-                    for i, res in enumerate(web_results[:3], 1):
-                        print(f"{i}. {res.get('title', 'No title')}")
-                        print(f"   URL: {res.get('url', 'No URL')}")
-                        print(f"   {res.get('snippet', 'No snippet')[:100]}...")
+                    print(f"\n🔍 Résultats de recherche web ({len(web_results)} résultats):")
+                    for i, item in enumerate(web_results[:5], 1):
+                        title = item.get('title', 'Sans titre')
+                        url = item.get('url', '')
+                        snippet = item.get('snippet', 'Pas de description')
+                        print(f"\n{i}. {title}")
+                        print(f"   URL: {url}")
+                        print(f"   Description: {snippet[:150]}...")
+                    response_shown = True
             
-            # Handle OS operations
-            if "os_operations" in result["results"]:
+            # Image generation results
+            if "image_generation" in result.get("results", {}):
+                img_result = result["results"]["image_generation"]
+                if img_result.get("success"):
+                    filepath = img_result.get("filepath", "")
+                    prompt = img_result.get("prompt", "")
+                    print(f"\n🎨 Image générée avec succès!")
+                    print(f"Prompt: {prompt}")
+                    print(f"Fichier: {filepath}")
+                else:
+                    print(f"\n❌ Erreur lors de la génération d'image: {img_result.get('message', 'Erreur inconnue')}")
+                response_shown = True
+            
+            # System operations results
+            if "os_operations" in result.get("results", {}):
                 os_result = result["results"]["os_operations"]
-                print(f"\nOS operation result: {os_result.get('message', 'No message')}")
-        
-        except Exception as e:
-            print(f"\nError: {str(e)}")
-            print("Please try another question or type 'quit' to exit.")
-
-def run_ingest(orchestrator, urls, files):
-    """Ingest data into the RAG pipeline."""
-    print("\nIngesting data...")
-    
-    try:
-        result = orchestrator.ingest_data(urls=urls, file_paths=files)
-        
-        if result["success"]:
-            print(f"\nSuccess: {result['message']}")
-        else:
-            print(f"\nError: {result['message']}")
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-
-def run_image_generation(orchestrator, prompt, width, height):
-    """Generate an image."""
-    print(f"\nGenerating image for: {prompt}")
-    
-    try:
-        options = {"width": width, "height": height}
-        result = orchestrator.generate_image(prompt, options)
-        
-        if result["success"] and "data" in result and "filepath" in result["data"]:
-            print(f"\nImage generated: {result['data']['filepath']}")
-        else:
-            print(f"\nError: {result.get('message', 'Unknown error')}")
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-
-def run_web_search(orchestrator, query, num_results):
-    """Search the web."""
-    print(f"\nSearching for: {query}")
-    
-    try:
-        result = orchestrator.search_web(query, num_results)
-        
-        if result["success"] and "results" in result:
-            web_results = result["results"]
-            print(f"\nFound {len(web_results)} results:")
+                if "message" in os_result:
+                    print(f"\n💻 Informations système:\n{os_result['message']}")
+                else:
+                    print(f"\n💻 Résultat système: {os_result}")
+                response_shown = True
             
-            for i, res in enumerate(web_results, 1):
-                print(f"{i}. {res.get('title', 'No title')}")
-                print(f"   URL: {res.get('url', 'No URL')}")
-                print(f"   {res.get('snippet', 'No snippet')[:100]}...")
-        else:
-            print(f"\nError: {result.get('message', 'Unknown error')}")
-    except Exception as e:
-        print(f"\nError: {str(e)}")
+            # If no specific result was shown, show a generic message
+            if not response_shown:
+                print(f"\n🤖 Réponse reçue mais aucun contenu à afficher.")
+                print(f"Résultats disponibles: {', '.join(result.get('results', {}).keys())}")
+                
+        except KeyboardInterrupt:
+            print("\n\n👋 Au revoir!")
+            break
+        except Exception as e:
+            print(f"\n❌ Erreur inattendue: {str(e)}")
+            print("Tapez 'quit' pour quitter ou continuez à poser des questions.")
 
-def run_os_operation(orchestrator, operation):
-    """Execute an OS operation."""
-    print(f"\nExecuting OS operation: {operation}")
+def main():
+    """Main CLI entry point with subcommands."""
+    parser = argparse.ArgumentParser(description="AI Services Orchestrator CLI")
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
-    try:
-        result = orchestrator.execute_os_command(operation)
+    # Chat command
+    chat_parser = subparsers.add_parser('chat', help='Start interactive chat session')
+    
+    # Quick commands
+    search_parser = subparsers.add_parser('search', help='Quick web search')
+    search_parser.add_argument('query', nargs='+', help='Search query')
+    
+    image_parser = subparsers.add_parser('image', help='Generate image')
+    image_parser.add_argument('description', nargs='+', help='Image description')
+    
+    os_parser = subparsers.add_parser('os', help='System operations')
+    os_parser.add_argument('command', nargs='+', help='OS command')
+    
+    args = parser.parse_args()
+    
+    # If no command specified, default to chat
+    if not args.command:
+        run_chat_session()
+        return
+    
+    # Initialize orchestrator for other commands
+    orchestrator = AIServicesOrchestrator()
+    
+    if args.command == 'chat':
+        run_chat_session(orchestrator)
+        
+    elif args.command == 'search':
+        query = ' '.join(args.query)
+        print(f"🔍 Searching for: {query}")
+        result = orchestrator.search_web(query)
         
         if result["success"]:
-            print(f"\nSuccess: {result['message']}")
-            if "result" in result and result["result"]:
-                print("\nResult:")
-                print(result["result"])
+            results = result["results"]
+            print(f"\n✅ Found {len(results)} results:")
+            for i, item in enumerate(results[:5], 1):
+                print(f"\n{i}. {item.get('title', 'No title')}")
+                print(f"   {item.get('url', '')}")
+                print(f"   {item.get('snippet', 'No description')[:150]}...")
         else:
-            print(f"\nError: {result.get('message', 'Unknown error')}")
-    except Exception as e:
-        print(f"\nError: {str(e)}")
+            print(f"❌ Search failed: {result['message']}")
+            
+    elif args.command == 'image':
+        description = ' '.join(args.description)
+        print(f"🎨 Generating image: {description}")
+        result = orchestrator.generate_image(description)
+        
+        if result["success"]:
+            filepath = result["data"].get("filepath", "")
+            print(f"✅ Image generated successfully!")
+            print(f"File: {filepath}")
+        else:
+            print(f"❌ Image generation failed: {result['message']}")
+            
+    elif args.command == 'os':
+        command = ' '.join(args.command)
+        print(f"💻 Executing: {command}")
+        result = orchestrator.execute_os_command(command)
+        
+        if result["success"]:
+            print(f"✅ Command executed:")
+            print(result["result"])
+        else:
+            print(f"❌ Command failed: {result['message']}")
 
 if __name__ == "__main__":
     main()
