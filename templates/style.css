@@ -397,6 +397,31 @@ header {
     opacity: 0.5;
 }
 
+/* Empty State Features */
+.empty-state-features {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 400px;
+    text-align: left;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--primary-light);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+}
+
+.feature-item svg {
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
 /* Sources Dropdown */
 .sources-dropdown {
     margin-top: 0.5rem;
@@ -430,6 +455,44 @@ header {
 .source-score {
     font-size: 0.7rem;
     color: var(--gray-medium);
+}
+
+/* Enhancement Button Styles */
+.enhance-button-container {
+    margin-top: 0.5rem;
+    text-align: right;
+}
+
+.enhance-button {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.enhance-button:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.enhance-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.enhanced-badge {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    text-align: right;
+    margin-top: 0.5rem;
+    font-style: italic;
 }
 
 /* Animations */

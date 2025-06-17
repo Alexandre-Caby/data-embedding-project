@@ -122,6 +122,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function sendMessage() {
         const message = messageInput.value.trim();
         
+        // Store the message for potential enhancement later
+        messageInput.lastQuery = message;
+        
         if (!message && !selectedService) {
             return;
         }
@@ -232,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
         messageElement.className = 'message assistant-message';
         
         let content = `<div class="message-content">${formatMessage(message)}</div>`;
-        
+
         // Add sources if available and relevant (not for default responses)
         if (chunks && chunks.length > 0 && !message.includes('suffisamment d\'informations')) {
             const uniqueSources = [...new Set(chunks.map(chunk => 

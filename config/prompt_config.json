@@ -1,3 +1,85 @@
 {
-  "system_message": "Vous êtes un assistant IA expert et pédagogique. Répondez de façon claire, structurée et concise en citant les documents de référence. Si l'information n'est pas disponible, indiquez-le et proposez une recherche web."
+  "system_message": "Vous êtes un assistant IA convivial et naturel. Répondez de façon appropriée au contexte de la conversation.\n\nPRINCIPES FONDAMENTAUX :\n- Pour les questions simples et salutations, répondez naturellement sans analyse\n- Pour les questions complexes, utilisez les documents de référence si pertinents\n- Ne prétendez JAMAIS connaître des informations qui ne sont pas dans les documents\n- Admettez honnêtement quand vous n'avez pas d'information pertinente\n\nGUIDE DE RÉPONSE :\n1. Pour les salutations/expressions courantes : répondez simplement et naturellement\n2. Pour les questions factuelles : répondez UNIQUEMENT avec les informations des documents pertinents\n3. Pour les questions sans information dans vos documents : suggérez la recherche web\n\nTON :\n- Soyez chaleureux et naturel comme une personne réelle\n- Évitez l'analyse académique pour des questions simples\n- N'inventez JAMAIS de sources ou de citations.\n- Utilisez un langage simple et direct\n- Soyez clair et concis dans vos réponses\n\nEXEMPLE DE RÉPONSE :\n- Pour une question sur la vitesse de la lumière, répondez avec les données pertinentes des documents\n- Pour une salutation, répondez simplement par \"Bonjour ! Comment puis-je vous aider aujourd'hui ?\"\n- Si vous n'avez pas d'information, dites clairement : \"Je n'ai pas d'information spécifique sur ce sujet dans mes documents. Je vous recommande de faire une recherche web pour plus de détails.\"\n- Pas besoin de citer les documents si la réponse est évidente ou simple. Dans le cas contraire, utilisez les documents de référence pour fournir une réponse précise et informative.\n\n",
+
+  "conversational_phrases": [
+    "ça va", "comment vas-tu", "bonjour", "salut", "bonsoir", "comment allez-vous", 
+    "comment ça va", "hello", "hi", "hey", "good morning", "good evening",
+    "à plus tard", "au revoir", "merci", "thanks", "thank you", "s'il vous plaît", 
+    "please", "excuse me", "excusez-moi", "désolé", "sorry"
+  ],
+
+  "conversational_responses": {
+    "ça va": "Oui, ça va bien, merci ! Et vous, comment allez-vous ?",
+    "comment vas-tu": "Je vais très bien, merci de demander ! Comment puis-je vous aider aujourd'hui ?",
+    "bonjour": "Bonjour ! Comment puis-je vous aider aujourd'hui ?",
+    "salut": "Salut ! Comment puis-je vous aider ?",
+    "bonsoir": "Bonsoir ! Que puis-je faire pour vous ?",
+    "comment allez-vous": "Je vais très bien, merci de demander ! Et vous, comment allez-vous ?",
+    "comment ça va": "Ça va bien, merci ! Comment puis-je vous aider aujourd'hui ?",
+    "hello": "Hello! How can I help you today?",
+    "hi": "Hi there! How can I assist you?",
+    "hey": "Hey! What can I do for you?",
+    "merci": "Je vous en prie ! N'hésitez pas si vous avez d'autres questions.",
+    "thanks": "You're welcome! Let me know if you need anything else.",
+    "thank you": "You're welcome! Feel free to ask if you have other questions."
+  },
+  
+  "user_message_template": "DOCUMENTS DE RÉFÉRENCE :\n{context}\n\nQUESTION :\n{query}\n\n INSTRUCTIONS :\n- Cette question porte sur : {category}\n- Répondez de façon directe et conversationnelle\n- Utilisez uniquement les informations des documents fournis\n- Indiquez clairement si vous n'avez pas d'information sur le sujet\n\nVotre réponse :",
+  
+  "greeting_response": "Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui ?",
+  
+  "no_context_response": "Je n'ai pas d'information spécifique sur \"{query}\" dans ma base de documents. Pour obtenir une réponse précise, je vous suggère d'utiliser la recherche web en tapant : `search web for {query}`",
+  
+  "general_knowledge_queries": [
+    "vitesse de la lumière", "speed of light", "quelle est la distance", "how far is", 
+    "population de", "population of", "capitale de", "capital of",
+    "qui a découvert", "who discovered", "quand a été", "when was",
+    "définition de", "definition of", "que signifie", "what does mean",
+    "combien de", "how many", "quelle est la hauteur", "what is the height",
+    "quel est le plus", "which is the most", "qui est le président", "who is the president"
+  ],
+  
+  "category_keywords": {
+    "historique": ["histoire", "passé", "ancien", "époque", "siècle", "année", "date", "période", "événement", "guerre", "révolution"],
+    "scientifique": ["science", "physique", "chimie", "biologie", "formule", "théorie", "loi", "expérience", "recherche"],
+    "technologique": ["technologie", "ordinateur", "logiciel", "application", "programmation", "code", "système", "internet", "réseau", "base de données"],
+    "mathématique": ["mathématiques", "formule", "équation", "théorème", "calcul", "algèbre", "géométrie", "trigonométrie"],
+    "géographique": ["géographie", "pays", "continent", "ville", "région", "montagne", "océan", "mer", "fleuve", "rivière", "climat"],
+    "culturel": ["culture", "art", "musique", "littérature", "cinéma", "théâtre", "peinture", "sculpture", "danse"],
+    "économique": ["économie", "finance", "marché", "entreprise", "commerce", "argent", "investissement", "bourse", "inflation"],
+    "politique": ["politique", "gouvernement", "état", "élection", "parti", "président", "parlement", "loi", "démocratie"],
+    "philosophique": ["philosophie", "éthique", "morale", "pensée", "concept", "idée", "logique"],
+    "médical": ["médecine", "santé", "maladie", "traitement", "symptôme", "diagnostic", "thérapie", "médicament"],
+    "conversationnel": ["bonjour", "salut", "ça va", "merci", "s'il vous plaît", "hello", "thanks", "please"]
+  },
+  
+  "temperature_by_category": {
+    "historique": 0.3,
+    "scientifique": 0.2,
+    "technologique": 0.2,
+    "mathématique": 0.1,
+    "géographique": 0.3,
+    "culturel": 0.4,
+    "économique": 0.3,
+    "politique": 0.3,
+    "philosophique": 0.5,
+    "médical": 0.2,
+    "conversationnel": 0.7,
+    "default": 0.3
+  },
+  
+  "max_tokens_by_category": {
+    "historique": 800,
+    "scientifique": 700,
+    "technologique": 700,
+    "mathématique": 600,
+    "géographique": 600,
+    "culturel": 700,
+    "économique": 600,
+    "politique": 700,
+    "philosophique": 900,
+    "médical": 800,
+    "conversationnel": 100,
+    "default": 600
+  }
 }
