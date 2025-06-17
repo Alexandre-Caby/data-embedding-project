@@ -41,6 +41,8 @@ class WebSearchService:
                 return self._search_bing(query, num_results)
             elif self.provider == "serp":
                 return self._search_serpapi(query, num_results)
+            elif self.provider == "duckduckgo":
+                return self._search_duckduckgo(query, num_results)
             elif self.provider == "custom":
                 return self._search_custom(query, num_results)
             else:
@@ -149,6 +151,34 @@ class WebSearchService:
                 })
         
         return results
+    
+    def _search_duckduckgo(self, query: str, num_results: int) -> List[Dict[str, Any]]:
+        """Search using DuckDuckGo HTML endpoint."""
+        encoded = urllib.parse.quote(query)
+        url = f"https://html.duckduckgo.com/html/?q={encoded}"
+        try:
+            resp = requests.get(url, headers=self.headers)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            results = []
+            for element in soup.select(".result")[:num_results]:
+                title_el = element.select_one(".result__title")
+                url_el   = element.select_one(".result__url")
+                snippet_el = element.select_one(".result__snippet")
+                if title_el and url_el:
+                    link = url_el.get_text()
+                    if not link.startswith(("http://", "https://")):
+                        link = "https://" + link
+                    results.append({
+                        "title":   title_el.get_text(),
+                        "url":     link,
+                        "snippet": snippet_el.get_text() if snippet_el else "",
+                        "source":  "duckduckgo"
+                    })
+            return results
+        except Exception as e:
+            self.logger.error(f"DuckDuckGo search error: {e}")
+            return []
     
     def _search_custom(self, query: str, num_results: int) -> List[Dict[str, Any]]:
         """
