@@ -12,20 +12,20 @@ class ScrapingConfig:
 class ChunkingConfig:
     words_per_chunk: int = 200
     overlap: int = 50
-    strategy: str = "sentence"  # "sentence", "word", "paragraph"
+    strategy: str = "sentence"
 
 @dataclass
 class EmbeddingConfig:
     model_name: str = "all-MiniLM-L6-v2"
     batch_size: int = 32
-    device: str = "auto"  # "auto", "cuda", "cpu"
+    device: str = "auto"
     normalize_embeddings: bool = True
 
 @dataclass
 class VectorStoreConfig:
-    storage_type: str = "memory"  # "memory", "faiss", "chroma"
+    storage_type: str = "memory"
     persist_directory: Optional[str] = None
-    index_type: str = "flat"  # for FAISS: "flat", "ivf"
+    index_type: str = "flat"
 
 @dataclass
 class RAGConfig:
