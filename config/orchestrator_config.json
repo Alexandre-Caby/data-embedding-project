@@ -6,22 +6,19 @@
     "chunk_overlap": 50,
     "data_dir": "data"
   },
-   "image_generation": {
+  "image_generation": {
     "enabled": true,
-    "provider": "huggingface",
+    "provider": "hf-inference",
     "api_key": "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",
-    "model": "stable-diffusion-xl",
+    "model": "stable-diffusion-v1-5",
     "available_models": [
-      "stable-diffusion-xl",
-      "stable-diffusion-2.1",
-      "openjourney",
-      "dreamlike-anime",
-      "realistic-vision",
-      "anything-v4"
+      "stable-diffusion-v1-5",
+      "stable-diffusion-xl-base-1.0",
+      "stable-diffusion-3-medium"
     ],
     "default_params": {
-      "width": 1024,
-      "height": 1024,
+      "width": 512,
+      "height": 512,
       "num_inference_steps": 30,
       "guidance_scale": 7.5,
       "negative_prompt": "blurry, bad quality, distorted, ugly"

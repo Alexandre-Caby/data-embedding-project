@@ -165,7 +165,20 @@ def chat():
             response["system_info"] = os_result
             if "message" in os_result:
                 response["context"] = os_result["message"]
-        
+
+        # Handle image generation results
+        if 'image_generation' in result['results']:
+            img_res = result['results']['image_generation']
+            if img_res.get('success') and img_res.get('filepath'):
+                # Build URL to the generated image in output/images
+                filename = os.path.basename(img_res['filepath'])
+                img_url = url_for('serve_output', filename=f'images/{filename}')
+                response['images'].append({
+                    'url': img_url,
+                    'prompt': img_res.get('prompt', '')
+                })
+                response['context'] = "Voici l'image générée :"
+
         return jsonify(response)
     
     except Exception as e:
