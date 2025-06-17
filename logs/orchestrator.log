@@ -147,3 +147,8 @@
 2025-06-17 17:33:11,218 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
 2025-06-17 17:33:11,218 - orchestrator - INFO - Initialized OS Operations service
 2025-06-17 17:33:11,218 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
+2025-06-17 23:38:02,317 - orchestrator - ERROR - Failed to initialize RAG service: Can't instantiate abstract class WebDataLoader without an implementation for abstract method 'supports'
+2025-06-17 23:38:02,318 - orchestrator - INFO - Initialized Hugging Face Image Generation service with model: stable-diffusion-xl
+2025-06-17 23:38:02,318 - orchestrator - INFO - Initialized Web Search service with provider: duckduckgo
+2025-06-17 23:38:02,318 - orchestrator - INFO - Initialized OS Operations service
+2025-06-17 23:38:02,318 - orchestrator - INFO - Orchestrator initialized with services: image_generation, web_search, os_operations
