@@ -99,10 +99,13 @@ def chat():
             
             # Extract the search query
             search_query = message
-            for prefix in ["search web", "search for", "find online"]:
+            for prefix in ["search web for", "search web", "search for", "find online"]:
                 if search_query.lower().startswith(prefix):
                     search_query = search_query[len(prefix):].strip()
                     break
+            
+            # Remove any remaining colons or extra text
+            search_query = search_query.lstrip(':').strip()
             
             # Direct call to web search for reliability
             if "web_search" in orchestrator.services:
@@ -214,12 +217,24 @@ def direct_search():
 
 @app.route('/reset', methods=['POST'])
 def reset():
+    """Reset conversation and services"""
     if not orchestrator:
         init_orchestrator()
     
     if orchestrator:
         result = orchestrator.reset_services()
         return jsonify({"message": "Conversation and services reset successfully", "details": result})
+    return jsonify({"error": "Orchestrator not initialized"}), 500
+
+@app.route('/reset_conversation', methods=['POST'])
+def reset_conversation():
+    """Reset the conversation history."""
+    if not orchestrator:
+        init_orchestrator()
+    
+    if orchestrator:
+        result = orchestrator.reset_services()
+        return jsonify({"message": "Conversation reset successfully", "details": result})
     return jsonify({"error": "Orchestrator not initialized"}), 500
 
 @app.route('/output/<path:filename>')
