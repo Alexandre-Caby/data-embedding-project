@@ -19,7 +19,7 @@ class RAGPipeline:
         self.conversation_history = []
         
         # Model path for reference
-        self.gguf_model_path = os.path.join(os.path.dirname(__file__), "core", "qwen2.5-7b-instruct-q3_k_m.gguf")
+        self.gguf_model_path = os.path.join(os.path.dirname(__file__), "core", "qwen3-30b.gguf")
         
         # Initialize OpenAI client for local API
         self.openai_client = OpenAI(
