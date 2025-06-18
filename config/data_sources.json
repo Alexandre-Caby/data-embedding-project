@@ -3,7 +3,22 @@
     "https://en.wikipedia.org/wiki/Artificial_intelligence",
     "https://en.wikipedia.org/wiki/Machine_learning",
     "https://en.wikipedia.org/wiki/Natural_language_processing",
-    "https://en.wikipedia.org/wiki/Computer_vision"
+    "https://en.wikipedia.org/wiki/Computer_vision",
+    "https://www.dictionary.com/",
+    "https://www.britannica.com/",
+    "https://www.oxfordlearnersdictionaries.com/",
+    "https://www.cambridge.org/dictionary/english/",
+    "https://www.merriam-webster.com/",
+    "https://www.larousse.fr/dictionnaires/francais-monolingue",
+    "https://www.collinsdictionary.com/dictionary/english-french/",
+    "https://www.wordreference.com/fren/",
+    "https://www.thesaurus.com/",
+    "https://github.com/",
+    "https://www.stackoverflow.com/",
+    "https://www.kaggle.com/",
+    "https://www.researchgate.net/",
+    "https://www.arxiv.org/",
+    "https://www.sciencedirect.com/"
   ],
   "file_paths": [
   ]

@@ -173,91 +173,82 @@ class AIServicesOrchestrator:
             return None
         return self.services[service_name]
     
-    def process_query(self, query: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Process a user query using appropriate services.
-        """
-        options = options or {}
+    def process_query(self, query: str, quality: str = 'high') -> Dict[str, Any]:
+        """Process a user query using appropriate services with high quality by default."""
         results = {"success": True, "query": query, "results": {}}
         
-        # Determine if this is a command for a specific service
-        service_commands = {
-            "generate image": "image_generation",
-            "create image": "image_generation", 
-            "make image": "image_generation",
-            "search web": "web_search",
-            "search for": "web_search",
-            "find online": "web_search",
-            "web search": "web_search",
-            "file operations": "os_operations",
-            "system info": "os_operations",
-            "system information": "os_operations"
-        }
-        
+        # Check for specialized service indicators in the query
         target_service = None
-        query_lower = query.lower()
         
-        # Check for specific service commands
-        for command, service in service_commands.items():
-            if command in query_lower and service in self.services:
-                target_service = service
-                break
+        # Image generation
+        if query.lower().startswith(('generate image', 'create image', 'draw')):
+            target_service = "image_generation"
+            # Extract the prompt
+            for prefix in ["generate image:", "generate image", "create image:", "create image", "draw:"]:
+                if query.lower().startswith(prefix):
+                    prompt = query[len(prefix):].strip()
+                    if prompt:
+                        if "image_generation" in self.services:
+                            try:
+                                image_result = self.services["image_generation"].generate_image(prompt)
+                                results["results"]["image_generation"] = image_result
+                                results["success"] = True
+                            except Exception as e:
+                                self.logger.error(f"Image generation error: {e}")
+                                results["results"]["image_generation"] = {"error": str(e)}
+                                results["success"] = False
         
-        # Process with the specific service if identified
-        if target_service:
-            try:
-                if target_service == "image_generation":
-                    # Extract the image description
-                    prompt = query
-                    for prefix in ["generate image", "create image", "make image"]:
-                        if prompt.lower().startswith(prefix):
-                            prompt = prompt[len(prefix):].strip()
-                            break
-                    
-                    if not prompt:
-                        prompt = "A creative and interesting image"
-                    
-                    image_result = self.services["image_generation"].generate_image(prompt)
-                    results["results"]["image_generation"] = image_result
-                
-                elif target_service == "web_search":
-                    # Extract the search query
-                    search_query = query
-                    for prefix in ["search web for", "search web", "search for", "find online", "web search"]:
-                        if search_query.lower().startswith(prefix):
-                            search_query = search_query[len(prefix):].strip()
-                            break
-                    
-                    search_query = search_query.lstrip(':').strip()
-                    
-                    if not search_query:
-                        search_query = "latest news"
-                    
-                    search_results = self.services["web_search"].search(search_query)
-                    results["results"]["web_search"] = search_results
-                
-                elif target_service == "os_operations":
-                    # Process OS operations command
+        # Web search
+        elif query.lower().startswith(('search web', 'search for')):
+            target_service = "web_search"
+            # Extract the search query
+            for prefix in ["search web for:", "search web for", "search web:", "search web", "search for:", "search for"]:
+                if query.lower().startswith(prefix):
+                    search_query = query[len(prefix):].strip()
+                    if search_query:
+                        if "web_search" in self.services:
+                            try:
+                                web_results = self.services["web_search"].search(search_query)
+                                results["results"]["web_search"] = web_results
+                                results["success"] = True
+                            except Exception as e:
+                                self.logger.error(f"Web search error: {e}")
+                                results["results"]["web_search"] = {"error": str(e)}
+                                results["success"] = False
+        
+        # System operations
+        elif query.lower().startswith(('system', 'file', 'directory')):
+            target_service = "os_operations"
+            if "os_operations" in self.services:
+                try:
                     os_result = self.services["os_operations"].process_command(query)
                     results["results"]["os_operations"] = os_result
-            
-            except Exception as e:
-                self.logger.error(f"Error in {target_service} service: {e}")
-                results["results"][target_service] = {"error": str(e)}
-                results["success"] = False
+                    results["success"] = True
+                except Exception as e:
+                    self.logger.error(f"OS operations error: {e}")
+                    results["results"]["os_operations"] = {"error": str(e)}
+                    results["success"] = False
         
-        # For general queries or if specific service processing failed, use RAG
-        # But only if no specific service was successfully invoked
+        # For general queries or if specific service processing failed, use RAG with high quality
         if "rag" in self.services and (not target_service or not results["success"] or not results["results"]):
             try:
-                rag_result = self.services["rag"].generate_response(query)
+                # Set top_k parameter based on quality
+                top_k = 8 if quality == 'high' else 5
+                
+                if quality == 'high':
+                    # Use the generate_response method directly for high quality
+                    rag_result = self.services["rag"].generate_response(query, top_k=top_k)
+                else:
+                    # Use the fast response method for lower quality/faster response
+                    rag_result = self.services["rag"].generate_response_fast(query, top_k=top_k)
+                    
                 results["results"]["rag"] = rag_result
                 # If RAG was the fallback but we had an error, mark as successful if RAG worked
                 if not results["success"] and rag_result.get("context"):
                     results["success"] = True
             except Exception as e:
                 self.logger.error(f"Error in RAG service: {e}")
-                results["results"]["rag"] = {"error": str(e)}
+                results["results"]["rag"] = {"error": str(e), "context": f"Error processing: {str(e)}"}
                 results["success"] = False
         
         return results
@@ -420,3 +411,16 @@ class AIServicesOrchestrator:
                 self.logger.info(f"Service {service_name} shut down properly")
             except Exception as e:
                 self.logger.error(f"Error shutting down {service_name}: {e}")
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics from all services"""
+        stats = {}
+        
+        if "rag" in self.services:
+            try:
+                stats["rag"] = self.services["rag"].get_performance_stats()
+            except Exception as e:
+                self.logger.error(f"Error getting RAG stats: {e}")
+                stats["rag"] = {"error": str(e)}
+        
+        return stats
