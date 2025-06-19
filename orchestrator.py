@@ -192,9 +192,10 @@ class AIServicesOrchestrator:
                     if prompt:
                         if "image_generation" in self.services:
                             try:
-                                image_result = self.services["image_generation"].generate_image(prompt)
-                                results["results"]["image_generation"] = image_result
-                                results["success"] = True
+                                # Correction : toujours passer par self.generate_image pour garantir le bon type d'objet
+                                image_result = self.generate_image(prompt)
+                                results["results"]["image_generation"] = image_result["data"]
+                                results["success"] = image_result["success"]
                             except Exception as e:
                                 self.logger.error(f"Image generation error: {e}")
                                 results["results"]["image_generation"] = {"error": str(e)}
@@ -306,7 +307,20 @@ class AIServicesOrchestrator:
             }
         
         try:
-            result = self.services["image_generation"].generate_image(prompt, options)
+            # Correction: toujours passer un objet ImageGenerationRequest
+            if options is None:
+                options = {}
+            # Crée l'objet request à partir du prompt et des options
+            request = ImageGenerationRequest(
+                prompt=prompt,
+                negative_prompt=options.get("negative_prompt"),
+                width=options.get("width", 1024),
+                height=options.get("height", 1024),
+                num_inference_steps=options.get("num_inference_steps", 30),
+                guidance_scale=options.get("guidance_scale", 7.5),
+                seed=options.get("seed")
+            )
+            result = self.services["image_generation"].generate_image(request)
             return {
                 "success": True,
                 "message": "Image generated successfully",

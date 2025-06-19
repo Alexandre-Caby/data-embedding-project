@@ -142,12 +142,13 @@ def chat():
         if "image_generation" in result["results"]:
             # Process image results...
             img_result = result["results"]["image_generation"]
-            if img_result.get("success") and "filepath" in img_result:
+            # Correction ici : accès attributs objet, pas .get()
+            if getattr(img_result, "success", False) and getattr(img_result, "filepath", None):
                 # Get relative path for the image
-                filename = os.path.basename(img_result["filepath"])
+                filename = os.path.basename(img_result.filepath)
                 response["images"].append({
                     "url": f"/output/{filename}",
-                    "prompt": img_result.get("prompt", "")
+                    "prompt": getattr(img_result, "prompt", "")
                 })
                 response["context"] = f"I've generated an image based on your request"
         
@@ -169,13 +170,13 @@ def chat():
         # Handle image generation results
         if 'image_generation' in result['results']:
             img_res = result['results']['image_generation']
-            if img_res.get('success') and img_res.get('filepath'):
+            if getattr(img_res, "success", False) and getattr(img_res, "filepath", None):
                 # Build URL to the generated image in output/images
-                filename = os.path.basename(img_res['filepath'])
+                filename = os.path.basename(img_res.filepath)
                 img_url = url_for('serve_output', filename=f'images/{filename}')
                 response['images'].append({
                     'url': img_url,
-                    'prompt': img_res.get('prompt', '')
+                    'prompt': getattr(img_res, "prompt", "")
                 })
                 response['context'] = "Voici l'image générée :"
 
