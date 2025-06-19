@@ -66,7 +66,7 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Enhanced chat endpoint with better error handling"""
+    """Enhanced chat endpoint with better error handling and higher quality responses by default"""
     global orchestrator
     
     # Ensure orchestrator is initialized
@@ -118,8 +118,8 @@ def chat():
                     "retrieved_chunks": []
                 })
         
-        # Process through orchestrator for non-search queries
-        result = orchestrator.process_query(message)
+        # Process through orchestrator for non-search queries with enhanced quality
+        result = orchestrator.process_query(message, quality='high')  # Add quality parameter
         logger.info(f"Query processed with services: {', '.join(result['results'].keys())}")
         
         # Prepare the response
