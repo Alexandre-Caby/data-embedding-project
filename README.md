@@ -11,17 +11,12 @@ pip install -r requirements.txt
 # Launch web interface
 python main.py --mode web
 
-# Launch command line
-python main.py --mode chat
-```
-
 ## ✨ Features
 
 - **RAG Pipeline**: Document ingestion, chunking, embedding, and intelligent retrieval
 - **Web Search**: Integration with multiple search providers
 - **Image Generation**: AI-powered image creation
 - **System Operations**: Safe file and system management
-- **Multiple Interfaces**: Web UI and command line
 
 ## 🛠️ Installation
 
@@ -49,32 +44,12 @@ python main.py --mode web
 # Open http://localhost:5050
 ```
 
-### Command Line Chat
-```bash
-python main.py --mode chat
-```
-
 ### Document Ingestion
 ```bash
 # From command line
 python main.py --mode ingest --urls https://example.com --files document.txt
 
 # Or edit config/data_sources.json
-```
-
-### Direct CLI Commands
-```bash
-# Interactive CLI
-python orchestrator_cli.py chat
-
-# Generate image
-python orchestrator_cli.py image "a beautiful sunset"
-
-# Web search
-python orchestrator_cli.py search "latest AI news"
-
-# System info
-python orchestrator_cli.py os "system info"
 ```
 
 ## 📁 Project Structure
@@ -111,7 +86,6 @@ python orchestrator_cli.py os "system info"
 ├── orchestrator.py        # Main orchestrator
 ├── rag_pipeline.py       # RAG implementation
 ├── web_interface.py      # Flask web app
-├── orchestrator_cli.py   # Command line interface
 └── main.py               # Entry point
 ```
 
