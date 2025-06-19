@@ -348,9 +348,42 @@ class RAGPipeline:
                 "processing_mode": "fast_error"
             }
     
-    def _handle_complex_query(self, query: str, top_k: int = 8, use_history: bool = True) -> Dict[str, Any]:
+    def _handle_complex_query(self, query: str, top_k: int = 8, use_history: bool = True, web_context: str = None) -> Dict[str, Any]:
         """Handle complex queries with standard processing"""
         try:
+            # If web_context is provided, prioritize it
+            if web_context:
+                system_message = """Vous êtes un assistant IA expert. Analysez les informations provenant de recherches web et répondez 
+                de manière précise et complète à la question posée. Utilisez les informations fournies pour créer une réponse 
+                synthétique et informative. Ne mentionnez pas explicitement que vous utilisez des recherches web. 
+                Répondez en français et soyez précis."""
+                
+                user_message = f"""Question: {query}
+
+Informations obtenues du web:
+{web_context}
+
+Analysez ces informations et répondez à la question de manière complète et précise."""
+                
+                # Generate response using web context
+                response = self.openai_client.chat.completions.create(
+                    model=self.openai_model,
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": user_message}
+                    ],
+                    temperature=0.7,  # Higher for creative synthesis
+                    max_tokens=800,
+                    stream=False
+                )
+                
+                return {
+                    "context": response.choices[0].message.content.strip(),
+                    "retrieved_chunks": [],
+                    "processing_mode": "web_synthesis",
+                    "web_processed": True
+                }
+            
             # Use standard processing but with some optimizations
             enhanced_query = self._enhance_query(query)
             category = self._categorize_query(query)
@@ -370,29 +403,48 @@ class RAGPipeline:
             # Build context from optimized chunks
             context = "\n\n".join([f"Document {i+1}: {chunk.chunk.content}" for i, chunk in enumerate(optimized_chunks)])
             
-            # Get category-specific parameters
-            temperature = self.prompt_config.get("temperature_by_category", {}).get(category, 0.3)
-            max_tokens = self.prompt_config.get("max_tokens_by_category", {}).get(category, 600)
-            
-            # Standard generation with optimizations
-            system_message = self.prompt_config.get("system_message", "Vous êtes un assistant IA expert...")
-            user_message_template = self.prompt_config.get("user_message_template", 
-                "## DOCUMENTS DE RÉFÉRENCE :\n{context}\n\n## QUESTION :\n{query}")
-            
-            user_message = user_message_template.replace("{context}", context)
-            user_message = user_message.replace("{query}", query)
-            user_message = user_message.replace("{category}", category)
-            
-            messages = [{"role": "system", "content": system_message}]
-            
-            # Add limited conversation history for speed
-            if use_history and self.conversation_history:
-                for entry in self.conversation_history[-1:]:  # Only last exchange
-                    messages.append({"role": "user", "content": entry[0]})
-                    messages.append({"role": "assistant", "content": entry[1]})
-            
-            messages.append({"role": "user", "content": user_message})
-            
+            # If web_context is provided, include it in the prompt
+            user_message = ""
+            if web_context:
+                system_message = """Vous êtes un assistant IA expert. Analysez les informations provenant de recherches web et répondez 
+                de manière précise et complète à la question posée. Utilisez les informations fournies mais ne les citez pas 
+                directement. Synthétisez l'information pour donner une réponse cohérente. Ne mentionnez pas que vous utilisez 
+                des recherches web dans votre réponse. Si les informations sont insuffisantes, dites-le clairement."""
+                
+                user_message = f"""Question: {query}
+
+    Information obtenue du web:
+    {web_context}
+
+    Répondez à la question en vous basant sur ces informations. Soyez précis et informatif."""
+                
+                # Use higher temperature for creative synthesis of web information
+                temperature = 0.7
+                max_tokens = 800
+            else:
+                # Get category-specific parameters
+                temperature = self.prompt_config.get("temperature_by_category", {}).get(category, 0.3)
+                max_tokens = self.prompt_config.get("max_tokens_by_category", {}).get(category, 600)
+                
+                # Standard generation with optimizations
+                system_message = self.prompt_config.get("system_message", "Vous êtes un assistant IA expert...")
+                user_message_template = self.prompt_config.get("user_message_template", 
+                    "## DOCUMENTS DE RÉFÉRENCE :\n{context}\n\n## QUESTION :\n{query}")
+                
+                user_message = user_message_template.replace("{context}", context)
+                user_message = user_message.replace("{query}", query)
+                user_message = user_message.replace("{category}", category)
+                
+                messages = [{"role": "system", "content": system_message}]
+                
+                # Add limited conversation history for speed
+                if use_history and self.conversation_history:
+                    for entry in self.conversation_history[-1:]:  # Only last exchange
+                        messages.append({"role": "user", "content": entry[0]})
+                        messages.append({"role": "assistant", "content": entry[1]})
+                
+                messages.append({"role": "user", "content": user_message})
+        
             response = self.openai_client.chat.completions.create(
                 model=self.openai_model,
                 messages=messages,

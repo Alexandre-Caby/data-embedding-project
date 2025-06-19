@@ -355,17 +355,33 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatMessage(message) {
         if (typeof message !== 'string') return '';
         
-        // Escape HTML first
-        let formatted = escapeHtml(message);
+        // Configure marked options for better rendering
+        marked.setOptions({
+            breaks: true,           // Convert line breaks to <br>
+            gfm: true,             // GitHub flavored markdown
+            headerIds: false,      // Don't add IDs to headers
+            mangle: false,         // Don't mangle autolinks
+            sanitize: false,       // Allow HTML (be careful with user input)
+            smartLists: true,      // Use smarter list behavior
+            smartypants: false     // Don't use smart quotes
+        });
         
-        // Convert URLs to links
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-        
-        // Convert line breaks
-        formatted = formatted.replace(/\n/g, '<br>');
-        
-        return formatted;
+        try {
+            let formatted = marked.parse(message);
+            
+            // Clean up any extra whitespace
+            formatted = formatted.replace(/\n\s*\n/g, '\n');
+            
+            // Convert standalone URLs to links (that aren't already in <a> tags)
+            const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"']+)(?![^<]*<\/a>)/g;
+            formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+            
+            return formatted;
+        } catch (error) {
+            console.error('Error formatting message:', error);
+            // Fallback to basic formatting
+            return escapeHtml(message).replace(/\n/g, '<br>');
+        }
     }
     
     function cleanUrl(url) {
