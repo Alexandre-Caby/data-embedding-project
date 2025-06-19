@@ -99,6 +99,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const text = messageInput.value.trim();
     if ((!text && !selectedService) || isWaitingForResponse) return;
 
+    // Store the message for potential enhancement later
+    messageInput.lastQuery = text;
+
     hideEmptyState();
     let msg = text;
 
@@ -188,8 +191,8 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // Sources
-    if (chunks.length) {
+    // Sources - Amélioration avec condition sur les réponses par défaut
+    if (chunks.length && !message.includes('suffisamment d\'informations')) {
       const uniq = [...new Set(chunks.map(c=>c.metadata?.source_document||c.source||'').filter(s=>s&&s!=='unknown'))];
       if (uniq.length) {
         html += '<div class="message-sources"><strong>Sources:</strong><br>';
@@ -262,87 +265,97 @@ document.addEventListener('DOMContentLoaded', function() {
     return u.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
             .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
   }
+
   function formatMessage(message) {
-  if (typeof message !== 'string') return '';
-      // 1) Échappement HTML de base
-      let text = escapeHtml(message);
+    if (typeof message !== 'string') return '';
+    // 1) Échappement HTML de base
+    let text = escapeHtml(message);
 
-      // 2) Bloc de code triple backticks (```code```)
-      text = text.replace(/```([\s\S]+?)```/g, '<pre><code>$1</code></pre>');
+    // 2) Bloc de code triple backticks (```code```)
+    text = text.replace(/```([\s\S]+?)```/g, '<pre><code>$1</code></pre>');
 
-      // 3) Block LaTeX $$...$$
-      text = text.replace(/\$\$([\s\S]+?)\$\$/g, '<div class="latex-block">$1</div>');
+    // 3) Block LaTeX $$...$$
+    text = text.replace(/\$\$([\s\S]+?)\$\$/g, '<div class="latex-block">$1</div>');
 
-      // 4) Blockquote en début de ligne
-      text = text.replace(/^\s*>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
+    // 4) Blockquote en début de ligne
+    text = text.replace(/^\s*>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
 
-      // 5) Listes non ordonnées et ordonnées multi‑lignes
-      text = text
-        // UL : lignes commençant par '- '
-        .replace(/(?:^|\n)(-\s+.+)(?:\n|$)/g, match => {
-          const items = match.trim().split('\n').map(l => l.replace(/^- /, '').trim());
-          return '\n<ul>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ul>\n';
-        })
-        // OL : lignes '1. ', '2. ', etc.
-        .replace(/(?:^|\n)(\d+\.\s+.+)(?:\n|$)/g, match => {
-          const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim());
-          return '\n<ol>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ol>\n';
-        });
-
-      // 6) Inline Markdown links [text](url)
-      text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-      // 7) Automatic URL linking (http(s)://...)
-      text = text.replace(/(https?:\/\/[^\s<]+)/g,
-        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-
-      // 8) Inline code `code`
-      text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-      // 9) **gras** et *italique* et ~~barré~~
-      const inlineStyles = [
-        { regex: /\*\*([^*]+)\*\*/g, tag: 'strong' },
-        { regex: /\*([^*]+)\*/g,     tag: 'em'     },
-        { regex: /~~([^~]+)~~/g,     tag: 'del'    },
-      ];
-      inlineStyles.forEach(({regex, tag}) => {
-        text = text.replace(regex, `<${tag}>$1</${tag}>`);
+    // 5) Listes non ordonnées et ordonnées multi‑lignes
+    text = text
+      // UL : lignes commençant par '- '
+      .replace(/(?:^|\n)(-\s+.+)(?:\n|$)/g, match => {
+        const items = match.trim().split('\n').map(l => l.replace(/^- /, '').trim());
+        return '\n<ul>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ul>\n';
+      })
+      // OL : lignes '1. ', '2. ', etc.
+      .replace(/(?:^|\n)(\d+\.\s+.+)(?:\n|$)/g, match => {
+        const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim());
+        return '\n<ol>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ol>\n';
       });
 
-      // 10) Inline LaTeX $...$
-      text = text.replace(/\$(.+?)\$/g, '<span class="latex">$1</span>');
+    // 6) Inline Markdown links [text](url)
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
-      // 11) Emojis :emoji:
-      text = text.replace(/:([a-zA-Z0-9_]+):/g, '<span class="emoji">:$1:</span>');
+    // 7) Automatic URL linking (http(s)://...)
+    text = text.replace(/(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 
-      // 12) Mentions @user et hashtags #tag
-      text = text
-        .replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention">@$1</span>')
-        .replace(/#([a-zA-Z0-9_]+)/g, '<span class="hashtag">#$1</span>');
+    // 8) Inline code `code`
+    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
 
-      // 13) Dates (YYYY‑MM‑DD) et heures (HH:MM)
-      text = text
-        .replace(/(\d{4}-\d{2}-\d{2})/g, '<time datetime="$1">$1</time>')
-        .replace(/(\b\d{1,2}:\d{2}\b)/g, '<time datetime="$1">$1</time>');
+    // 9) **gras** et *italique* et ~~barré~~
+    const inlineStyles = [
+      { regex: /\*\*([^*]+)\*\*/g, tag: 'strong' },
+      { regex: /\*([^*]+)\*/g,     tag: 'em'     },
+      { regex: /~~([^~]+)~~/g,     tag: 'del'    },
+    ];
+    inlineStyles.forEach(({regex, tag}) => {
+      text = text.replace(regex, `<${tag}>$1</${tag}>`);
+    });
 
-      // 14) Lignes vides en <br> pour conserver les sauts
-      text = text.replace(/\n{2,}/g, '<br><br>');
+    // 10) Inline LaTeX $...$
+    text = text.replace(/\$(.+?)\$/g, '<span class="latex">$1</span>');
 
-      return text.trim();
-    }
-  // Nettoyage robuste des URL
+    // 11) Emojis :emoji:
+    text = text.replace(/:([a-zA-Z0-9_]+):/g, '<span class="emoji">:$1:</span>');
+
+    // 12) Mentions @user et hashtags #tag
+    text = text
+      .replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention">@$1</span>')
+      .replace(/#([a-zA-Z0-9_]+)/g, '<span class="hashtag">#$1</span>');
+
+    // 13) Dates (YYYY‑MM‑DD) et heures (HH:MM)
+    text = text
+      .replace(/(\d{4}-\d{2}-\d{2})/g, '<time datetime="$1">$1</time>')
+      .replace(/(\b\d{1,2}:\d{2}\b)/g, '<time datetime="$1">$1</time>');
+
+    // 14) Lignes vides en <br> pour conserver les sauts
+    text = text.replace(/\n{2,}/g, '<br><br>');
+    text = text.replace(/\n/g, '<br>');
+
+    return text.trim();
+  }
+
+  // Nettoyage robuste des URL - Version améliorée du second fichier
   function cleanUrl(url) {
-    if (!url||url==='') return '#';
+    if (!url || url === '') return '#';
+
+    // Remove HTML entities and extra spaces
     let u = url
       .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
       .replace(/&quot;/g,'"').replace(/&#039;/g,"'")
       .replace(/%20+/g,'').replace(/\s+/g,'').trim();
+
+    // If URL doesn't start with protocol, add https://
     if (!u.startsWith('http://') && !u.startsWith('https://')) {
       u = u.replace(/^[\/\\]+/,'');
       u = 'https://' + u;
     }
+
+    // Additional cleaning for malformed URLs
     u = u.replace(/https?:\/\/\s+/,'https://');
+
     return u;
   }
 
@@ -351,23 +364,43 @@ document.addEventListener('DOMContentLoaded', function() {
       const p = new URL(url);
       return p.hostname + p.pathname.replace(/\/$/, '');
     } catch {
-      return url;
+      // For display purposes, show a cleaner version
+      return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
   }
 
-  /*** ÉCOUTEUR GLOBAL POUR LIENS WEB ***/
+  /*** ÉCOUTEUR GLOBAL POUR LIENS WEB - Version améliorée ***/
   document.addEventListener('click', function(e) {
     const a = e.target.closest('.web-result-title a');
     if (!a) return;
     e.preventDefault();
+
+    // Get the cleaned URL
     let url = a.dataset.cleanUrl || a.href;
-    url = url.trim().replace(/^https?:\/\/\s+/, 'https://').replace(/%20+/g,'').replace(/\s+/g,'');
+
+    // Additional cleaning just in case
+    url = url.trim()
+      .replace(/^https?:\/\/\s+/, 'https://')
+      .replace(/%20+/g, '')
+      .replace(/\s+/g, '');
+
+    // Validate URL format
     try {
       new URL(url);
+      console.log('Opening cleaned URL:', url);
       window.open(url, '_blank', 'noopener,noreferrer');
-    } catch {
-      console.error('Invalid URL:', url);
-      alert('Sorry, this URL appears malformed and cannot be opened.');
+    } catch (error) {
+      console.error('Invalid URL:', url, error);
+      // Try to construct a valid URL
+      const fallbackUrl = url.replace(/^[^a-zA-Z]*/, 'https://');
+      try {
+        new URL(fallbackUrl);
+        console.log('Opening fallback URL:', fallbackUrl);
+        window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+      } catch (fallbackError) {
+        console.error('Could not open URL:', url);
+        alert('Sorry, this URL appears to be malformed and cannot be opened.');
+      }
     }
   });
 
