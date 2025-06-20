@@ -230,80 +230,127 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       html += '</div>';
     }
-    
-    function showEmptyState() {
-        if (emptyState) {
-            emptyState.style.display = 'flex';
-        }
-    }
-    
-    function escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return '';
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-    
-    function formatMessage(message) {
-        if (typeof message !== 'string') return '';
-        
-        // Configure marked options for better rendering
-        marked.setOptions({
-            breaks: true,           // Convert line breaks to <br>
-            gfm: true,             // GitHub flavored markdown
-            headerIds: false,      // Don't add IDs to headers
-            mangle: false,         // Don't mangle autolinks
-            sanitize: false,       // Allow HTML (be careful with user input)
-            smartLists: true,      // Use smarter list behavior
-            smartypants: false     // Don't use smart quotes
-        });
-        
-        try {
-            let formatted = marked.parse(message);
-            
-            // Clean up any extra whitespace
-            formatted = formatted.replace(/\n\s*\n/g, '\n');
-            
-            // Convert standalone URLs to links (that aren't already in <a> tags)
-            const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"']+)(?![^<]*<\/a>)/g;
-            formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-            
-            return formatted;
-        } catch (error) {
-            console.error('Error formatting message:', error);
-            // Fallback to basic formatting
-            return escapeHtml(message).replace(/\n/g, '<br>');
-        }
-    }
-    
-    function cleanUrl(url) {
-        if (!url || url === '#') return '#';
-        
-        // Remove HTML entities and extra spaces
-        let cleanedUrl = url
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'")
-            .replace(/%20+/g, '') // Remove encoded spaces
-            .replace(/\s+/g, '') // Remove any remaining spaces
-            .trim();
-        
-        // If URL doesn't start with protocol, add https://
-        if (!cleanedUrl.startsWith('http://') && !cleanedUrl.startsWith('https://')) {
-            // Remove any leading slashes or weird characters
-            cleanedUrl = cleanedUrl.replace(/^[\/\\]+/, '');
-            cleanedUrl = 'https://' + cleanedUrl;
-        }
-        
-        // Additional cleaning for malformed URLs
-        cleanedUrl = cleanedUrl.replace(/https?:\/\/\s+/, 'https://');
-        
-        return cleanedUrl;
+
+    el.innerHTML = html;
+    messagesContainer.appendChild(el);
+    scrollToBottom();
+  }
+
+  // Indicateur de saisie
+  function addTypingIndicator() {
+    const ind = document.createElement('div');
+    ind.className = 'typing-indicator'; ind.id = 'typingIndicator';
+    ind.innerHTML = '<div class="typing-bubble"></div>'.repeat(3) + '<span>Assistant is typing…</span>';
+    messagesContainer.appendChild(ind);
+    scrollToBottom();
+  }
+  function removeTypingIndicator() {
+    document.getElementById('typingIndicator')?.remove();
+  }
+
+  // Défilement, état vide
+  function scrollToBottom() {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+  function hideEmptyState() {
+    emptyState && (emptyState.style.display = 'none');
+  }
+  function showEmptyState() {
+    emptyState && (emptyState.style.display = 'flex');
+  }
+
+  // Échappement et formatage du texte
+  function escapeHtml(u) {
+    if (typeof u!=='string') return '';
+    return u.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+            .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
+  function formatMessage(message) {
+    if (typeof message !== 'string') return '';
+    // 1) Échappement HTML de base
+    let text = escapeHtml(message);
+
+    // 2) Bloc de code triple backticks (```code```)
+    text = text.replace(/```([\s\S]+?)```/g, '<pre><code>$1</code></pre>');
+
+    // 3) Block LaTeX $$...$$
+    text = text.replace(/\$\$([\s\S]+?)\$\$/g, '<div class="latex-block">$1</div>');
+
+    // 4) Blockquote en début de ligne
+    text = text.replace(/^\s*>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
+
+    // 5) Listes non ordonnées et ordonnées multi‑lignes
+    text = text
+      // UL : lignes commençant par '- '
+      .replace(/(?:^|\n)(-\s+.+)(?:\n|$)/g, match => {
+        const items = match.trim().split('\n').map(l => l.replace(/^- /, '').trim());
+        return '\n<ul>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ul>\n';
+      })
+      // OL : lignes '1. ', '2. ', etc.
+      .replace(/(?:^|\n)(\d+\.\s+.+)(?:\n|$)/g, match => {
+        const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim());
+        return '\n<ol>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ol>\n';
+      });
+
+    // 6) Inline Markdown links [text](url)
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // 7) Automatic URL linking (http(s)://...)
+    text = text.replace(/(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // 8) Inline code `code`
+    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+    // 9) **gras** et *italique* et ~~barré~~
+    const inlineStyles = [
+      { regex: /\*\*([^*]+)\*\*/g, tag: 'strong' },
+      { regex: /\*([^*]+)\*/g,     tag: 'em'     },
+      { regex: /~~([^~]+)~~/g,     tag: 'del'    },
+    ];
+    inlineStyles.forEach(({regex, tag}) => {
+      text = text.replace(regex, `<${tag}>$1</${tag}>`);
+    });
+
+    // 10) Inline LaTeX $...$
+    text = text.replace(/\$(.+?)\$/g, '<span class="latex">$1</span>');
+
+    // 11) Emojis :emoji:
+    text = text.replace(/:([a-zA-Z0-9_]+):/g, '<span class="emoji">:$1:</span>');
+
+    // 12) Mentions @user et hashtags #tag
+    text = text
+      .replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention">@$1</span>')
+      .replace(/#([a-zA-Z0-9_]+)/g, '<span class="hashtag">#$1</span>');
+
+    // 13) Dates (YYYY‑MM‑DD) et heures (HH:MM)
+    text = text
+      .replace(/(\d{4}-\d{2}-\d{2})/g, '<time datetime="$1">$1</time>')
+      .replace(/(\b\d{1,2}:\d{2}\b)/g, '<time datetime="$1">$1</time>');
+
+    // 14) Lignes vides en <br> pour conserver les sauts
+    text = text.replace(/\n{2,}/g, '<br><br>');
+    text = text.replace(/\n/g, '<br>');
+
+    return text.trim();
+  }
+
+  // Nettoyage robuste des URL - Version améliorée du second fichier
+  function cleanUrl(url) {
+    if (!url || url === '') return '#';
+
+    // Remove HTML entities and extra spaces
+    let u = url
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+      .replace(/&quot;/g,'"').replace(/&#039;/g,"'")
+      .replace(/%20+/g,'').replace(/\s+/g,'').trim();
+
+    // If URL doesn't start with protocol, add https://
+    if (!u.startsWith('http://') && !u.startsWith('https://')) {
+      u = u.replace(/^[\/\\]+/,'');
+      u = 'https://' + u;
     }
 
     // Additional cleaning for malformed URLs
