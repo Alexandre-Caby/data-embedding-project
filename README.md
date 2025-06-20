@@ -4,13 +4,14 @@ A unified framework combining RAG (Retrieval Augmented Generation), web search, 
 
 ## 🚀 Quick Start
 
-```bash
 # Install dependencies
+```bash
 pip install -r requirements.txt
-
+```
 # Launch web interface
+```bash
 python main.py --mode web
-
+```
 ## ✨ Features
 
 - **RAG Pipeline**: Document ingestion, chunking, embedding, and intelligent retrieval
