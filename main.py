@@ -23,7 +23,7 @@ def load_data_sources(config_file="config/data_sources.json"):
 
 def main():
     parser = argparse.ArgumentParser(description="AI Services Orchestrator")
-    parser.add_argument("--mode", choices=["ingest", "chat", "web", "cli"], 
+    parser.add_argument("--mode", choices=["ingest", "web"], 
                        help="Mode to run", required=False)
     parser.add_argument("--urls", nargs="+", help="URLs to scrape")
     parser.add_argument("--files", nargs="+", help="File paths to process")
@@ -44,18 +44,10 @@ def main():
             result = orchestrator.ingest_data(urls or None, files or None)
             print(f"Result: {result['message']}")
             
-        elif args.mode == "chat":
-            import orchestrator_cli
-            orchestrator_cli.run_chat_session(orchestrator)
-            
         elif args.mode == "web":
             print("Starting web interface on http://127.0.0.1:5050...")
             import web_interface
             web_interface.app.run(debug=False, port=5050)
-            
-        elif args.mode == "cli":
-            import orchestrator_cli
-            orchestrator_cli.main()
             
         else:
             # Interactive mode
@@ -65,12 +57,9 @@ def main():
                 result = orchestrator.ingest_data(urls or None, files or None)
                 print(f"Ingested: {result.get('chunks', 0)} chunks")
             
-            choice = input("\nChoose interface: (1) Command line (2) Web browser (3) Exit: ").strip()
+            choice = input("\nChoose interface: (1) Web browser (3) Exit: ").strip()
             
             if choice == '1':
-                import orchestrator_cli
-                orchestrator_cli.run_chat_session(orchestrator)
-            elif choice == '2':
                 print("Starting web interface on http://127.0.0.1:5050...")
                 import web_interface
                 web_interface.app.run(debug=False, port=5050)
