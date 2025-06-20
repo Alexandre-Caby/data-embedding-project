@@ -10,6 +10,7 @@ from rag_pipeline import create_rag_pipeline, RAGPipeline
 from services.image_generation import HuggingFaceImageService, ImageGenerationRequest
 from services.web_search import WebSearchService
 from services.os_operations import OSOperationsService
+from core.interfaces import Document
 
 class AIServicesOrchestrator:
     """
@@ -29,6 +30,9 @@ class AIServicesOrchestrator:
         # Initialize services
         self.services = {}
         self._init_services()
+        
+        self.temp_web_documents = []  # Store temporary web documents
+        self.temp_web_query = ""      # Store the query that generated these documents
         
         self.logger.info("Orchestrator initialized with services: " + 
                         ", ".join(self.services.keys()))
@@ -212,6 +216,26 @@ class AIServicesOrchestrator:
                         if "web_search" in self.services:
                             try:
                                 web_results = self.services["web_search"].search(search_query)
+                                
+                                # Process web results to extract knowledge
+                                self.temp_web_documents = self.process_web_search_results(web_results)
+                                self.temp_web_query = search_query
+                                
+                                # Create context from web documents
+                                web_context = ""
+                                for doc in self.temp_web_documents:
+                                    web_context += f"\n\n--- From {doc.metadata.get('title', 'Web')} ---\n"
+                                    web_context += doc.content[:1500] + "..."
+                                
+                                # Generate a response with web context if RAG is available
+                                if "rag" in self.services and web_context:
+                                    rag_result = self.services["rag"]._handle_complex_query(
+                                        query=search_query, 
+                                        web_context=web_context,
+                                        top_k=3
+                                    )
+                                    results["results"]["rag"] = rag_result
+                                
                                 results["results"]["web_search"] = web_results
                                 results["success"] = True
                             except Exception as e:
@@ -424,7 +448,7 @@ class AIServicesOrchestrator:
                     service.save()
                 if hasattr(service, "shutdown"):
                     service.shutdown()
-                self.logger.info(f"Service {service_name} shut down properly")
+                    self.logger.info(f"Service {service_name} shut down properly")
             except Exception as e:
                 self.logger.error(f"Error shutting down {service_name}: {e}")
 
@@ -438,5 +462,58 @@ class AIServicesOrchestrator:
             except Exception as e:
                 self.logger.error(f"Error getting RAG stats: {e}")
                 stats["rag"] = {"error": str(e)}
-
+        
         return stats
+    
+    def process_web_search_results(self, search_results: List[Dict[str, Any]]) -> List[Document]:
+        """
+        Process web search results by fetching and converting them to Document objects.
+        """
+        if not search_results:
+            return []
+        
+        self.logger.info(f"Processing {len(search_results)} web search results")
+        
+        # Extract URLs from search results and clean them
+        urls = []
+        for result in search_results:
+            url = result.get('url')
+            if url and isinstance(url, str):
+                # Clean the URL - remove whitespace and newlines
+                cleaned_url = url.strip().replace('\n', '').replace(' ', '')
+                if cleaned_url.startswith(('http://', 'https://')):
+                    urls.append(cleaned_url)
+        
+        if not urls:
+            self.logger.warning("No valid URLs found in search results")
+            return []
+        
+        # Log the URLs we're trying to scrape
+        self.logger.info(f"Cleaned URLs to scrape: {urls[:3]}")
+        
+        # Use WebDataLoader to scrape content from URLs
+        try:
+            from loaders.web_loader import WebDataLoader
+            from core.config import ScrapingConfig
+            
+            # Create a config with reasonable scraping settings
+            scraping_config = ScrapingConfig(
+                delay_between_requests=1.0,
+                timeout=15,
+                retry_count=2
+            )
+            
+            web_loader = WebDataLoader(scraping_config)
+            documents = web_loader.load(urls[:3])  # Try fewer URLs first
+            
+            # Log each document's content length
+            for i, doc in enumerate(documents):
+                self.logger.info(f"Document {i+1}: {len(doc.content)} characters from {doc.metadata.get('url', 'unknown')}")
+            
+            self.logger.info(f"Successfully scraped {len(documents)} documents from web search results")
+            return documents
+        except Exception as e:
+            self.logger.error(f"Error processing web search results: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return []

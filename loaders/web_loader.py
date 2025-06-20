@@ -28,46 +28,71 @@ class WebDataLoader(DataLoader):
         return documents
 
     def _scrape_url(self, url: str) -> Optional[Document]:
-        html = self._get_html(url)
-        if not html:
+        try:
+            html = self._get_html(url)
+            if not html:
+                print(f"Failed to get HTML for {url}")
+                return None
+
+            soup = BeautifulSoup(html, 'html.parser')
+            content = self._extract_content(soup)
+            
+            if not content or len(content.strip()) < 50:
+                print(f"No meaningful content extracted from {url}")
+                return None
+                
+            title = soup.title.string if soup.title else ''
+            
+            doc_id = hashlib.md5(url.encode()).hexdigest()
+            metadata = {
+                'title': title,
+                'domain': urlparse(url).netloc,
+                'url': url
+            }
+
+            print(f"Successfully scraped {len(content)} characters from {url}")
+            return Document(
+                id=doc_id,
+                content=content,
+                metadata=metadata,
+                source=url
+            )
+        except Exception as e:
+            print(f"Error scraping {url}: {e}")
             return None
 
-        soup = BeautifulSoup(html, 'html.parser')
-        content = self._extract_content(soup)
-        title = soup.title.string if soup.title else ''
-        
-        doc_id = hashlib.md5(url.encode()).hexdigest()
-        metadata = {
-            'title': title,
-            'domain': urlparse(url).netloc,
-            'url': url
-        }
-
-        return Document(
-            id=doc_id,
-            content=content,
-            metadata=metadata,
-            source=url
-        )
-
     def _get_html(self, url: str) -> Optional[str]:
-        # Rate limiting
-        current_time = time.time()
-        time_since_last = current_time - self.last_request_time
-        if time_since_last < self.config.delay_between_requests:
-            time.sleep(self.config.delay_between_requests - time_since_last)
-
-        for attempt in range(self.config.retry_count):
+        """Get HTML content from a URL with improved error handling"""
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        try:
+            # Clean the URL first
+            url = url.strip().replace('\n', '').replace(' ', '')
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                timeout=self.config.timeout,
+                allow_redirects=True,
+                verify=False  # Skip SSL verification for problematic sites
+            )
+            response.raise_for_status()
+            return response.text
+        except requests.exceptions.SSLError as e:
+            print(f"SSL Error for {url}: {e}")
+            # Try without SSL verification
             try:
-                response = requests.get(url, headers=self.headers, timeout=self.config.timeout)
+                response = requests.get(url, headers=headers, timeout=self.config.timeout, verify=False)
                 response.raise_for_status()
-                self.last_request_time = time.time()
                 return response.text
-            except Exception as e:
-                if attempt < self.config.retry_count - 1:
-                    wait_time = (2 ** attempt) + np.random.uniform(0, 1)
-                    time.sleep(wait_time)
-        return None
+            except Exception as e2:
+                print(f"Failed even without SSL verification: {e2}")
+                return None
+        except Exception as e:
+            print(f"Error fetching {url}: {e}")
+            return None
 
     def _extract_content(self, soup: BeautifulSoup) -> str:
         # Remove unwanted elements

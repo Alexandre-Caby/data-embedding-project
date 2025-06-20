@@ -33,7 +33,7 @@ def init_orchestrator(force=False):
         
         # Verify services are available
         services = list(orchestrator.services.keys())
-        logger.info(f"Orchestrator initialized with services: {', '.join(services)}")
+        # logger.info(f"Orchestrator initialized with services: {', '.join(services)}")
         
         # Verify RAG service specifically
         if "rag" in orchestrator.services:
@@ -93,7 +93,7 @@ def chat():
     try:
         logger.info(f"Processing query: {message[:50]}{'...' if len(message) > 50 else ''}")
         
-        # Check if this is a search query
+        # Handle web search
         if message.lower().startswith(('search web', 'search for', 'find online')):
             logger.info("Detected web search query")
             
@@ -112,8 +112,50 @@ def chat():
                 logger.info(f"Calling web_search service directly with query: {search_query}")
                 web_results = orchestrator.services["web_search"].search(search_query)
                 
+                # Process web search results to extract knowledge
+                web_documents = orchestrator.process_web_search_results(web_results)
+                
+                # Create context from web documents OR search snippets as fallback
+                web_context = ""
+                if web_documents:
+                    # Use scraped content
+                    for i, doc in enumerate(web_documents):
+                        web_context += f"\n\n--- Source {i+1}: {doc.metadata.get('title', 'Web Source')} ---\n"
+                        web_context += doc.content[:2000]
+                    logger.info(f"Using scraped content from {len(web_documents)} documents")
+                else:
+                    # Fallback: use search result snippets
+                    logger.info("Web scraping failed, using search snippets as fallback")
+                    for i, result in enumerate(web_results[:3]):
+                        web_context += f"\n\n--- Résultat {i+1}: {result.get('title', 'Sans titre')} ---\n"
+                        web_context += result.get('snippet', 'Pas de description disponible')
+                
+                # Generate a response based on the web content using RAG
+                if "rag" in orchestrator.services and web_context:
+                    try:
+                        # Use the RAG service to generate a comprehensive response
+                        rag_result = orchestrator.services["rag"]._handle_complex_query(
+                            query=search_query,
+                            web_context=web_context,
+                            top_k=3
+                        )
+                        
+                        return jsonify({
+                            "context": rag_result.get("context", f"Basé sur les résultats de recherche pour '{search_query}':"),
+                            "web_results": web_results,
+                            "retrieved_chunks": []
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing web content with RAG: {e}")
+                
+                # Final fallback: return search results with basic summary
+                summary = f"J'ai trouvé {len(web_results)} résultats pour '{search_query}'. "
+                if web_context:
+                    # Create a basic summary from the available context
+                    summary += "Voici ce que j'ai trouvé : " + web_context[:500] + "..."
+                
                 return jsonify({
-                    "context": f"Here are search results for '{search_query}':",
+                    "context": summary,
                     "web_results": web_results,
                     "retrieved_chunks": []
                 })
