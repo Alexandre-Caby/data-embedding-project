@@ -8,9 +8,21 @@
   },
   "image_generation": {
     "enabled": true,
-    "provider": "local",
-    "model": "stable-diffusion-xl-base-1.0",
-    "api_key": ""
+    "provider": "hf-inference",
+    "api_key": "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",
+    "model": "stable-diffusion-v1-5",
+    "available_models": [
+      "stable-diffusion-v1-5",
+      "stable-diffusion-xl-base-1.0",
+      "stable-diffusion-3-medium"
+    ],
+    "default_params": {
+      "width": 512,
+      "height": 512,
+      "num_inference_steps": 30,
+      "guidance_scale": 7.5,
+      "negative_prompt": "blurry, bad quality, distorted, ugly"
+    }
   },
   "web_search": {
     "enabled": true,

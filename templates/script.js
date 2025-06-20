@@ -1,339 +1,234 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const messagesContainer = document.getElementById('messagesContainer');
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.getElementById('sendButton');
-    const clearButton = document.getElementById('clearChat');
-    const emptyState = document.getElementById('emptyState');
-    
-    let isWaitingForResponse = false;
-    let selectedService = null;
-    
-    // Check if elements exist
-    if (!messagesContainer || !messageInput || !sendButton) {
-        console.error('Required DOM elements not found');
-        return;
-    }
-    
-    // Auto-resize the textarea
-    messageInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-        
-        // Enable send button if there's text
-        updateSendButton();
-    });
-    
-    // Send message when Enter key is pressed (without Shift)
-    messageInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-    
-    // Send message when button is clicked
-    sendButton.addEventListener('click', sendMessage);
-    
-    // Clear chat history
-    if (clearButton) {
-        clearButton.addEventListener('click', function() {
-            fetch('/reset_conversation', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                messagesContainer.innerHTML = '';
-                showEmptyState();
-            })
-            .catch(error => {
-                console.error('Error resetting conversation:', error);
-            });
-        });
-    }
-    
-    // Service button event listeners
-    const serviceButtons = {
-        'imageGenBtn': 'image',
-        'webSearchBtn': 'web_search',
-        'systemInfoBtn': 'system'
-    };
-    
-    Object.keys(serviceButtons).forEach(buttonId => {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleService(serviceButtons[buttonId]);
-            });
-        }
-    });
-    
-    function updateSendButton() {
-        const hasText = messageInput.value.trim().length > 0;
-        sendButton.disabled = !hasText && !selectedService;
-    }
-    
-    function toggleService(service) {
-        const buttonMap = {
-            'image': 'imageGenBtn',
-            'web_search': 'webSearchBtn', 
-            'system': 'systemInfoBtn'
-        };
-        
-        // If same service clicked, deselect
-        if (selectedService === service) {
-            selectedService = null;
-            document.getElementById(buttonMap[service]).classList.remove('selected');
-            updatePlaceholder();
-            updateSendButton();
-            return;
-        }
-        
-        // Clear all selections
-        Object.values(buttonMap).forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) btn.classList.remove('selected');
-        });
-        
-        // Select new service
-        selectedService = service;
-        const targetButton = document.getElementById(buttonMap[service]);
-        if (targetButton) {
-            targetButton.classList.add('selected');
-        }
-        
-        updatePlaceholder();
-        updateSendButton();
-        messageInput.focus();
-    }
-    
-    function updatePlaceholder() {
-        const placeholders = {
-            'image': 'Describe the image you want to generate...',
-            'web_search': 'Enter your web search query...',
-            'system': 'Ask for system information...',
-            null: 'Type your question here'
-        };
-        
-        messageInput.placeholder = placeholders[selectedService] || placeholders[null];
-    }
-    
-    function sendMessage() {
-        const message = messageInput.value.trim();
-        
-        // Store the message for potential enhancement later
-        messageInput.lastQuery = message;
-        
-        if (!message && !selectedService) {
-            return;
-        }
-        
-        if (isWaitingForResponse) {
-            return;
-        }
-        
-        hideEmptyState();
-        
-        let processedMessage = message;
-        
-        // Process message based on selected service
-        if (selectedService) {
-            switch(selectedService) {
-                case 'image':
-                    processedMessage = message || 'Generate a creative image';
-                    if (!processedMessage.toLowerCase().includes('generate')) {
-                        processedMessage = `Generate image: ${processedMessage}`;
-                    }
-                    break;
-                    
-                case 'web_search':
-                    processedMessage = message || 'latest news';
-                    if (!processedMessage.toLowerCase().includes('search')) {
-                        processedMessage = `Search web for: ${processedMessage}`;
-                    }
-                    break;
-                    
-                case 'system':
-                    processedMessage = message || 'system info';
-                    break;
-            }
-            
-            // Clear service selection
-            const buttonMap = {
-                'image': 'imageGenBtn',
-                'web_search': 'webSearchBtn',
-                'system': 'systemInfoBtn'
-            };
-            
-            Object.values(buttonMap).forEach(btnId => {
-                const btn = document.getElementById(btnId);
-                if (btn) btn.classList.remove('selected');
-            });
-            
-            selectedService = null;
-            updatePlaceholder();
-        }
-        
-        // Add user message
-        addUserMessage(processedMessage);
-        
-        // Clear input
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-        updateSendButton();
-        
-        // Show typing indicator
-        addTypingIndicator();
-        
-        // Set waiting state
-        isWaitingForResponse = true;
-        sendButton.disabled = true;
-        
-        // Send to backend
-        fetch('/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ message: processedMessage })
-        })
-        .then(response => response.json())
-        .then(data => {
-            removeTypingIndicator();
-            addAssistantMessage(
-                data.context || "No response received", 
-                data.retrieved_chunks || [], 
-                data.images || [], 
-                data.web_results || []
-            );
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            removeTypingIndicator();
-            addAssistantMessage("Sorry, I encountered an error processing your request.", [], [], []);
-        })
-        .finally(() => {
-            isWaitingForResponse = false;
-            updateSendButton();
-            messageInput.focus();
-        });
-    }
-    
-    function addUserMessage(message) {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message user-message';
-        messageElement.innerHTML = `
-            <div class="message-content">${escapeHtml(message)}</div>
-        `;
-        messagesContainer.appendChild(messageElement);
-        scrollToBottom();
-    }
-    
-    function addAssistantMessage(message, chunks, images, webResults) {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message assistant-message';
-        
-        let content = `<div class="message-content">${formatMessage(message)}</div>`;
+  const messagesContainer = document.getElementById('messagesContainer');
+  const messageInput      = document.getElementById('messageInput');
+  const sendButton        = document.getElementById('sendButton');
+  const clearButton       = document.getElementById('clearChat');
+  const emptyState        = document.getElementById('emptyState');
 
-        // Add sources if available and relevant (not for default responses)
-        if (chunks && chunks.length > 0 && !message.includes('suffisamment d\'informations')) {
-            const uniqueSources = [...new Set(chunks.map(chunk => 
-                chunk.metadata?.source_document || chunk.source || ''
-            ).filter(source => source && source !== 'unknown'))];
-            
-            if (uniqueSources.length > 0) {
-                content += '<div class="message-sources">';
-                content += '<strong>Sources:</strong><br>';
-                uniqueSources.forEach(source => {
-                    content += `<span class="source-item">${escapeHtml(source)}</span>`;
-                });
-                content += '</div>';
-            }
-        }
-        
-        // Add images if available
-        if (images && images.length > 0) {
-            images.forEach(image => {
-                content += `
-                    <div class="image-result">
-                        <img src="${image.url}" alt="${escapeHtml(image.prompt || 'Generated image')}" />
-                    </div>
-                `;
-            });
-        }
-        
-        // Add web results if available
-        if (webResults && webResults.length > 0) {
-            content += `
-                <div class="web-results">
-                    <div class="web-results-header">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <span>Résultats de recherche (${webResults.length})</span>
-                    </div>
-            `;
-            
-            webResults.forEach(result => {
-                let url = result.url?.trim() || '#';
-                const title = result.title || 'Sans titre';
-                const snippet = result.snippet || 'Aucune description disponible';
-                
-                // Clean and fix the URL
-                url = cleanUrl(url);
-                
-                content += `
-                    <div class="web-result-item">
-                        <div class="web-result-title">
-                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-clean-url="${escapeHtml(url)}">
-                                ${escapeHtml(title)}
-                            </a>
-                        </div>
-                        <div class="web-result-url">${escapeHtml(displayUrl(url))}</div>
-                        <div class="web-result-snippet">${escapeHtml(snippet)}</div>
-                    </div>
-                `;
-            });
-            
-            content += '</div>';
-        }
-        
-        messageElement.innerHTML = content;
-        messagesContainer.appendChild(messageElement);
-        scrollToBottom();
+  let isWaitingForResponse = false;
+  let selectedService      = null;
+
+  // Vérification des éléments
+  if (!messagesContainer || !messageInput || !sendButton) {
+    console.error('Required DOM elements not found');
+    return;
+  }
+
+  // Redimensionnement automatique du textarea
+  messageInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+    updateSendButton();
+  });
+
+  // Envoi par Enter (sans Shift)
+  messageInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
-    
-    function addTypingIndicator() {
-        const typingElement = document.createElement('div');
-        typingElement.className = 'typing-indicator';
-        typingElement.id = 'typingIndicator';
-        typingElement.innerHTML = `
-            <div class="typing-bubble"></div>
-            <div class="typing-bubble"></div>
-            <div class="typing-bubble"></div>
-            <span>Assistant is typing...</span>
+  });
+
+  // Envoi par clic
+  sendButton.addEventListener('click', sendMessage);
+
+  // Reset du chat
+  if (clearButton) {
+    clearButton.addEventListener('click', function() {
+      fetch('/reset_conversation', { method: 'POST' })
+        .then(res => res.json())
+        .then(() => {
+          messagesContainer.innerHTML = '';
+          showEmptyState();
+        })
+        .catch(err => console.error('Error resetting conversation:', err));
+    });
+  }
+
+  // Boutons de service
+  const serviceButtons = {
+    'imageGenBtn':    'image',
+    'webSearchBtn':   'web_search',
+    'systemInfoBtn':  'system'
+  };
+  Object.entries(serviceButtons).forEach(([btnId, svc]) => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        toggleService(svc);
+      });
+    }
+  });
+
+  // Activation / désactivation du bouton envoyer
+  function updateSendButton() {
+    const hasText = messageInput.value.trim().length > 0;
+    sendButton.disabled = !hasText && !selectedService;
+  }
+
+  function toggleService(service) {
+    const btnMap = { image: 'imageGenBtn', web_search: 'webSearchBtn', system: 'systemInfoBtn' };
+    if (selectedService === service) {
+      document.getElementById(btnMap[service]).classList.remove('selected');
+      selectedService = null;
+      updatePlaceholder();
+      updateSendButton();
+      return;
+    }
+    Object.values(btnMap).forEach(id => document.getElementById(id)?.classList.remove('selected'));
+    selectedService = service;
+    document.getElementById(btnMap[service])?.classList.add('selected');
+    updatePlaceholder();
+    updateSendButton();
+    messageInput.focus();
+  }
+
+  function updatePlaceholder() {
+    const placeholders = {
+      image:     'Describe the image you want to generate…',
+      web_search:'Enter your web search query…',
+      system:    'Ask for system information…',
+      null:      'Type your question here'
+    };
+    messageInput.placeholder = placeholders[selectedService] || placeholders.null;
+  }
+
+  // Envoi du message
+  function sendMessage() {
+    const text = messageInput.value.trim();
+    if ((!text && !selectedService) || isWaitingForResponse) return;
+
+    // Store the message for potential enhancement later
+    messageInput.lastQuery = text;
+
+    hideEmptyState();
+    let msg = text;
+
+    if (selectedService) {
+      if (selectedService === 'image') {
+        msg = text || 'Generate a creative image';
+        if (!msg.toLowerCase().includes('generate')) msg = `Generate image: ${msg}`;
+      }
+      if (selectedService === 'web_search') {
+        msg = text || 'latest news';
+        if (!msg.toLowerCase().includes('search')) msg = `Search web for: ${msg}`;
+      }
+      if (selectedService === 'system') {
+        msg = text || 'system info';
+      }
+      // Reset service buttons
+      ['imageGenBtn','webSearchBtn','systemInfoBtn'].forEach(id => document.getElementById(id)?.classList.remove('selected'));
+      selectedService = null;
+      updatePlaceholder();
+    }
+
+    addUserMessage(msg);
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    updateSendButton();
+    addTypingIndicator();
+
+    isWaitingForResponse = true;
+    sendButton.disabled    = true;
+
+    fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg })
+    })
+    .then(r => r.json())
+    .then(data => {
+      removeTypingIndicator();
+      addAssistantMessage(
+        data.context || "No response received",
+        data.retrieved_chunks || [],
+        data.images || [],
+        data.web_results || []
+      );
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      removeTypingIndicator();
+      addAssistantMessage("Sorry, I encountered an error processing your request.", [], [], []);
+    })
+    .finally(() => {
+      isWaitingForResponse = false;
+      updateSendButton();
+      messageInput.focus();
+    });
+  }
+
+  // Affichage des messages utilisateur / assistant
+  function addUserMessage(text) {
+    const el = document.createElement('div');
+    el.className = 'message user-message';
+    el.innerHTML = `<div class="message-content">${escapeHtml(text)}</div>`;
+    messagesContainer.appendChild(el);
+    scrollToBottom();
+  }
+
+  function addAssistantMessage(message, chunks, images, webResults) {
+    const el = document.createElement('div');
+    el.className = 'message assistant-message';
+    let html = `<div class="message-content">${formatMessage(message)}</div>`;
+
+    // Images générées
+    if (images.length) {
+      images.forEach(img => {
+        let url = img.url;
+        if (!url.startsWith('http') && !url.startsWith('/output/')) {
+          url = `/output/images/${url}`;
+        }
+        html += `
+          <div class="image-result">
+            <img src="${url}"
+                 alt="${escapeHtml(img.prompt||'Generated image')}"
+                 onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4...';this.style.opacity='0.5';" />
+            ${img.prompt ? `<div class="image-caption">"${escapeHtml(img.prompt)}"</div>` : ''}
+          </div>
         `;
-        messagesContainer.appendChild(typingElement);
-        scrollToBottom();
+      });
     }
-    
-    function removeTypingIndicator() {
-        const typingElement = document.getElementById('typingIndicator');
-        if (typingElement) {
-            typingElement.remove();
-        }
+
+    // Sources - Amélioration avec condition sur les réponses par défaut
+    if (chunks.length && !message.includes('suffisamment d\'informations')) {
+      const uniq = [...new Set(chunks.map(c=>c.metadata?.source_document||c.source||'').filter(s=>s&&s!=='unknown'))];
+      if (uniq.length) {
+        html += '<div class="message-sources"><strong>Sources:</strong><br>';
+        uniq.forEach(src => html += `<span class="source-item">${escapeHtml(src)}</span>`);
+        html += '</div>';
+      }
     }
-    
-    function scrollToBottom() {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-    
-    function hideEmptyState() {
-        if (emptyState) {
-            emptyState.style.display = 'none';
-        }
+
+    // Résultats web
+    if (webResults.length) {
+      html += `
+        <div class="web-results">
+          <div class="web-results-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span>Résultats de recherche (${webResults.length})</span>
+          </div>
+      `;
+      webResults.forEach(r => {
+        const url     = cleanUrl(r.url?.trim()||'#');
+        const title   = r.title   || 'Sans titre';
+        const snippet = r.snippet || 'Aucune description disponible';
+        html += `
+          <div class="web-result-item">
+            <div class="web-result-title">
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-clean-url="${escapeHtml(url)}">
+                ${escapeHtml(title)}
+              </a>
+            </div>
+            <div class="web-result-url">${escapeHtml(displayUrl(url))}</div>
+            <div class="web-result-snippet">${escapeHtml(snippet)}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
     }
     
     function showEmptyState() {
@@ -410,48 +305,59 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return cleanedUrl;
     }
-    
-    function displayUrl(url) {
-        // For display purposes, show a cleaner version
-        return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    }
 
-    // Initialize
-    updateSendButton();
-});
+    // Additional cleaning for malformed URLs
+    u = u.replace(/https?:\/\/\s+/,'https://');
 
-// Enhanced URL click handler
-document.addEventListener('click', function(e) {
-    const target = e.target.closest('.web-result-title a');
-    if (target) {
-        e.preventDefault();
-        
-        // Get the cleaned URL
-        let url = target.getAttribute('data-clean-url') || target.getAttribute('href');
-        
-        // Additional cleaning just in case
-        url = url.trim()
-            .replace(/^https?:\/\/\s+/, 'https://')
-            .replace(/%20+/g, '')
-            .replace(/\s+/g, '');
-        
-        // Validate URL format
-        try {
-            new URL(url);
-            console.log('Opening cleaned URL:', url);
-            window.open(url, '_blank', 'noopener,noreferrer');
-        } catch (error) {
-            console.error('Invalid URL:', url, error);
-            // Try to construct a valid URL
-            const fallbackUrl = url.replace(/^[^a-zA-Z]*/, 'https://');
-            try {
-                new URL(fallbackUrl);
-                console.log('Opening fallback URL:', fallbackUrl);
-                window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
-            } catch (fallbackError) {
-                console.error('Could not open URL:', url);
-                alert('Sorry, this URL appears to be malformed and cannot be opened.');
-            }
-        }
+    return u;
+  }
+
+  function displayUrl(url) {
+    try {
+      const p = new URL(url);
+      return p.hostname + p.pathname.replace(/\/$/, '');
+    } catch {
+      // For display purposes, show a cleaner version
+      return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
+  }
+
+  /*** ÉCOUTEUR GLOBAL POUR LIENS WEB - Version améliorée ***/
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('.web-result-title a');
+    if (!a) return;
+    e.preventDefault();
+
+    // Get the cleaned URL
+    let url = a.dataset.cleanUrl || a.href;
+
+    // Additional cleaning just in case
+    url = url.trim()
+      .replace(/^https?:\/\/\s+/, 'https://')
+      .replace(/%20+/g, '')
+      .replace(/\s+/g, '');
+
+    // Validate URL format
+    try {
+      new URL(url);
+      console.log('Opening cleaned URL:', url);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Invalid URL:', url, error);
+      // Try to construct a valid URL
+      const fallbackUrl = url.replace(/^[^a-zA-Z]*/, 'https://');
+      try {
+        new URL(fallbackUrl);
+        console.log('Opening fallback URL:', fallbackUrl);
+        window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+      } catch (fallbackError) {
+        console.error('Could not open URL:', url);
+        alert('Sorry, this URL appears to be malformed and cannot be opened.');
+      }
+    }
+  });
+
+  // Initialisation
+  updateSendButton();
+  showEmptyState();
 });

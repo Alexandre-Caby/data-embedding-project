@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Import your existing components
 from rag_pipeline import create_rag_pipeline, RAGPipeline
-from services.image_generation import ImageGenerationService
+from services.image_generation import HuggingFaceImageService, ImageGenerationRequest
 from services.web_search import WebSearchService
 from services.os_operations import OSOperationsService
 from core.interfaces import Document
@@ -130,22 +130,24 @@ class AIServicesOrchestrator:
                     self.logger.info(f"Loaded RAG data from {data_dir}")
             except Exception as e:
                 self.logger.error(f"Failed to initialize RAG service: {e}")
-        
-        # Initialize Image Generation
-        if self.config.get("image_generation", {}).get("enabled", False):
-            try:
-                img_config = self.config.get("image_generation", {})
-                self.services["image_generation"] = ImageGenerationService(
-                    provider=img_config.get("provider", "local"),
-                    model=img_config.get("model", "stable-diffusion-xl-base-1.0"),
-                    api_key=img_config.get("api_key", "")
-                )
-                self.logger.info(f"Initialized Image Generation service with provider: {img_config.get('provider')}")
-            except Exception as e:
-                self.logger.error(f"Failed to initialize Image Generation service: {e}")
-        
-        # Initialize Web Search
-        if self.config.get("web_search", {}).get("enabled", False):
+
+        # Image Generation via HF Inference (free tier)
+        img_conf = self.config.get("image_generation", {})
+        if img_conf.get("enabled", False):
+            api_key = img_conf.get("api_key", "").strip()
+            if not api_key:
+                self.logger.warning("Pas de clé HF, désactivation du service image_generation")
+            else:
+                try:
+                    svc = HuggingFaceImageService(api_key=api_key)
+                    self.services["image_generation"] = svc
+                    self.logger.info("Service image_generation initialisé via HF Inference (free tier)")
+                except Exception as e:
+                    self.logger.error(f"Échec de l'init du service image_generation : {e}")
+
+        # Web Search
+        ws_conf = self.config.get("web_search", {})
+        if ws_conf.get("enabled", False):
             try:
                 search_config = self.config.get("web_search", {})
                 self.services["web_search"] = WebSearchService(
@@ -183,7 +185,7 @@ class AIServicesOrchestrator:
         
         # Check for specialized service indicators in the query
         target_service = None
-        
+
         # Image generation
         if query.lower().startswith(('generate image', 'create image', 'draw')):
             target_service = "image_generation"
@@ -194,14 +196,15 @@ class AIServicesOrchestrator:
                     if prompt:
                         if "image_generation" in self.services:
                             try:
-                                image_result = self.services["image_generation"].generate_image(prompt)
-                                results["results"]["image_generation"] = image_result
-                                results["success"] = True
+                                # Correction : toujours passer par self.generate_image pour garantir le bon type d'objet
+                                image_result = self.generate_image(prompt)
+                                results["results"]["image_generation"] = image_result["data"]
+                                results["success"] = image_result["success"]
                             except Exception as e:
                                 self.logger.error(f"Image generation error: {e}")
                                 results["results"]["image_generation"] = {"error": str(e)}
                                 results["success"] = False
-        
+
         # Web search
         elif query.lower().startswith(('search web', 'search for')):
             target_service = "web_search"
@@ -239,7 +242,7 @@ class AIServicesOrchestrator:
                                 self.logger.error(f"Web search error: {e}")
                                 results["results"]["web_search"] = {"error": str(e)}
                                 results["success"] = False
-        
+
         # System operations
         elif query.lower().startswith(('system', 'file', 'directory')):
             target_service = "os_operations"
@@ -252,20 +255,20 @@ class AIServicesOrchestrator:
                     self.logger.error(f"OS operations error: {e}")
                     results["results"]["os_operations"] = {"error": str(e)}
                     results["success"] = False
-        
+
         # For general queries or if specific service processing failed, use RAG with high quality
         if "rag" in self.services and (not target_service or not results["success"] or not results["results"]):
             try:
                 # Set top_k parameter based on quality
                 top_k = 8 if quality == 'high' else 5
-                
+
                 if quality == 'high':
                     # Use the generate_response method directly for high quality
                     rag_result = self.services["rag"].generate_response(query, top_k=top_k)
                 else:
                     # Use the fast response method for lower quality/faster response
                     rag_result = self.services["rag"].generate_response_fast(query, top_k=top_k)
-                    
+
                 results["results"]["rag"] = rag_result
                 # If RAG was the fallback but we had an error, mark as successful if RAG worked
                 if not results["success"] and rag_result.get("context"):
@@ -328,7 +331,20 @@ class AIServicesOrchestrator:
             }
         
         try:
-            result = self.services["image_generation"].generate_image(prompt, options)
+            # Correction: toujours passer un objet ImageGenerationRequest
+            if options is None:
+                options = {}
+            # Crée l'objet request à partir du prompt et des options
+            request = ImageGenerationRequest(
+                prompt=prompt,
+                negative_prompt=options.get("negative_prompt"),
+                width=options.get("width", 1024),
+                height=options.get("height", 1024),
+                num_inference_steps=options.get("num_inference_steps", 30),
+                guidance_scale=options.get("guidance_scale", 7.5),
+                seed=options.get("seed")
+            )
+            result = self.services["image_generation"].generate_image(request)
             return {
                 "success": True,
                 "message": "Image generated successfully",
@@ -435,11 +451,11 @@ class AIServicesOrchestrator:
                     self.logger.info(f"Service {service_name} shut down properly")
             except Exception as e:
                 self.logger.error(f"Error shutting down {service_name}: {e}")
-    
+
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get performance statistics from all services"""
         stats = {}
-        
+
         if "rag" in self.services:
             try:
                 stats["rag"] = self.services["rag"].get_performance_stats()
