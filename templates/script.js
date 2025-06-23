@@ -259,83 +259,60 @@ document.addEventListener('DOMContentLoaded', function() {
     emptyState && (emptyState.style.display = 'flex');
   }
 
-  // Échappement et formatage du texte
-  function escapeHtml(u) {
-    if (typeof u!=='string') return '';
-    return u.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-            .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-  }
+function escapeHtml(text) {
+    if (typeof text !== 'string') return '';
+    
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
   function formatMessage(message) {
     if (typeof message !== 'string') return '';
-    // 1) Échappement HTML de base
-    let text = escapeHtml(message);
-
-    // 2) Bloc de code triple backticks (```code```)
-    text = text.replace(/```([\s\S]+?)```/g, '<pre><code>$1</code></pre>');
-
-    // 3) Block LaTeX $$...$$
-    text = text.replace(/\$\$([\s\S]+?)\$\$/g, '<div class="latex-block">$1</div>');
-
-    // 4) Blockquote en début de ligne
-    text = text.replace(/^\s*>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
-
-    // 5) Listes non ordonnées et ordonnées multi‑lignes
-    text = text
-      // UL : lignes commençant par '- '
-      .replace(/(?:^|\n)(-\s+.+)(?:\n|$)/g, match => {
-        const items = match.trim().split('\n').map(l => l.replace(/^- /, '').trim());
-        return '\n<ul>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ul>\n';
-      })
-      // OL : lignes '1. ', '2. ', etc.
-      .replace(/(?:^|\n)(\d+\.\s+.+)(?:\n|$)/g, match => {
-        const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim());
-        return '\n<ol>\n' + items.map(i => `<li>${i}</li>`).join('\n') + '\n</ol>\n';
-      });
-
-    // 6) Inline Markdown links [text](url)
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-    // 7) Automatic URL linking (http(s)://...)
-    text = text.replace(/(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-
-    // 8) Inline code `code`
-    text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-    // 9) **gras** et *italique* et ~~barré~~
-    const inlineStyles = [
-      { regex: /\*\*([^*]+)\*\*/g, tag: 'strong' },
-      { regex: /\*([^*]+)\*/g,     tag: 'em'     },
-      { regex: /~~([^~]+)~~/g,     tag: 'del'    },
-    ];
-    inlineStyles.forEach(({regex, tag}) => {
-      text = text.replace(regex, `<${tag}>$1</${tag}>`);
+    
+    // Configure marked options for better rendering
+    marked.setOptions({
+        breaks: true,           // Convert line breaks to <br>
+        gfm: true,             // GitHub flavored markdown
+        headerIds: false,      // Don't add IDs to headers
+        mangle: false,         // Don't mangle autolinks
+        sanitize: false,       // Allow HTML (be careful with user input)
+        smartLists: true,      // Use smarter list behavior
+        smartypants: false     // Don't use smart quotes
     });
+    
+    try {
+        // First decode HTML entities that might be in the message
+        let decoded = message
+            .replace(/&#039;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+        
+        let formatted = marked.parse(decoded);
+        
+        // Clean up any extra whitespace
+        formatted = formatted.replace(/\n\s*\n/g, '\n');
+        
+        // Convert standalone URLs to links (that aren't already in <a> tags)
+        const urlRegex = /(?<!href=["'])(https?:\/\/[^\s<>"']+)(?![^<]*<\/a>)/g;
+        formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        
+        return formatted;
+    } catch (error) {
+        console.error('Error formatting message:', error);
+        // Fallback to basic formatting with proper decoding
+        return decodeHtmlEntities(message).replace(/\n/g, '<br>');
+    }
+}
 
-    // 10) Inline LaTeX $...$
-    text = text.replace(/\$(.+?)\$/g, '<span class="latex">$1</span>');
-
-    // 11) Emojis :emoji:
-    text = text.replace(/:([a-zA-Z0-9_]+):/g, '<span class="emoji">:$1:</span>');
-
-    // 12) Mentions @user et hashtags #tag
-    text = text
-      .replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention">@$1</span>')
-      .replace(/#([a-zA-Z0-9_]+)/g, '<span class="hashtag">#$1</span>');
-
-    // 13) Dates (YYYY‑MM‑DD) et heures (HH:MM)
-    text = text
-      .replace(/(\d{4}-\d{2}-\d{2})/g, '<time datetime="$1">$1</time>')
-      .replace(/(\b\d{1,2}:\d{2}\b)/g, '<time datetime="$1">$1</time>');
-
-    // 14) Lignes vides en <br> pour conserver les sauts
-    text = text.replace(/\n{2,}/g, '<br><br>');
-    text = text.replace(/\n/g, '<br>');
-
-    return text.trim();
-  }
+// Add this helper function
+function decodeHtmlEntities(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+}
 
   // Nettoyage robuste des URL - Version améliorée du second fichier
   function cleanUrl(url) {
@@ -369,7 +346,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  /*** ÉCOUTEUR GLOBAL POUR LIENS WEB - Version améliorée ***/
   document.addEventListener('click', function(e) {
     const a = e.target.closest('.web-result-title a');
     if (!a) return;

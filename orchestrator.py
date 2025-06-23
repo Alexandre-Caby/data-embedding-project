@@ -185,9 +185,10 @@ class AIServicesOrchestrator:
         
         # Check for specialized service indicators in the query
         target_service = None
+        query_lower = query.lower().strip()
 
         # Image generation
-        if query.lower().startswith(('generate image', 'create image', 'draw')):
+        if query_lower.startswith(('generate image', 'create image', 'draw')):
             target_service = "image_generation"
             # Extract the prompt
             for prefix in ["generate image:", "generate image", "create image:", "create image", "draw:"]:
@@ -206,11 +207,11 @@ class AIServicesOrchestrator:
                                 results["success"] = False
 
         # Web search
-        elif query.lower().startswith(('search web', 'search for')):
+        elif query_lower.startswith(('search web', 'search for')):
             target_service = "web_search"
             # Extract the search query
             for prefix in ["search web for:", "search web for", "search web:", "search web", "search for:", "search for"]:
-                if query.lower().startswith(prefix):
+                if query_lower.startswith(prefix):
                     search_query = query[len(prefix):].strip()
                     if search_query:
                         if "web_search" in self.services:
@@ -244,13 +245,32 @@ class AIServicesOrchestrator:
                                 results["success"] = False
 
         # System operations
-        elif query.lower().startswith(('system', 'file', 'directory')):
+        elif any(keyword in query_lower for keyword in [
+            'system info', 'system information', 'computer info',
+            'disk space', 'storage info', 'memory usage', 'ram usage',
+            'cpu usage', 'processor usage', 'list files', 'list directory',
+            'read file', 'show content', 'display file', 
+            
+            # Enhanced file creation keywords
+            'write file', 'create file', 'delete file', 'remove file', 'copy file',
+            'create a file', 'write a file', 'make a file', 'make file',
+            'new file', 'create a text file', 'create text file', 'hello.txt',
+            'text file with', 'create a file with', 'write hello world',
+            
+            # French patterns
+            "créer fichier", "créer un fichier", "écrire fichier", 
+            "nouveau fichier", "sauvegarder fichier", "créer fichier texte",
+            "faire un fichier", "fichier avec", "avec", "contenant",
+            "bonjour monde"
+        ]):
             target_service = "os_operations"
             if "os_operations" in self.services:
                 try:
+                    self.logger.info(f"Routing command to OS operations: {query}")
                     os_result = self.services["os_operations"].process_command(query)
                     results["results"]["os_operations"] = os_result
                     results["success"] = True
+                    return results  # Return immediately for OS operations
                 except Exception as e:
                     self.logger.error(f"OS operations error: {e}")
                     results["results"]["os_operations"] = {"error": str(e)}

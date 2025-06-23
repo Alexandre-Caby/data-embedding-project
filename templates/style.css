@@ -1,3 +1,16 @@
+:root {
+    --background-main: #3c493fff;
+    --white: #f0f7f4ff;
+    --dark: #7e8d85ff;
+    --dark-gray: #b3bfb8ff;
+    --url-green: #a2e3c4ff;
+    --link-blue: #a2e3c4ff;
+    --snippet-gray: #b3bfb8ff;
+    --border-blue: #a2e3c4ff;
+    --btn-grad-start: #3c493fff;
+    --btn-grad-end: #7e8d85ff;
+} 
+
 * {
     margin: 0;
     padding: 0;
@@ -6,7 +19,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--background-main);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -31,7 +44,7 @@ header {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: white;
+    color: var(--white);
     font-size: 1.2rem;
     font-weight: 600;
 }
@@ -44,7 +57,7 @@ header {
 .clear-button {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white;
+    color: var(--white);
     padding: 0.5rem 1rem;
     border-radius: 8px;
     cursor: pointer;
@@ -93,7 +106,7 @@ header {
 
 .empty-state h3 {
     margin-bottom: 0.5rem;
-    color: white;
+    color: var(--white);
 }
 
 .message {
@@ -106,14 +119,14 @@ header {
 
 .user-message {
     background: rgba(255, 255, 255, 0.2);
-    color: white;
+    color: var(--white);
     margin-left: auto;
     border-bottom-right-radius: 4px;
 }
 
 .assistant-message {
     background: rgba(255, 255, 255, 0.9);
-    color: #333;
+    color: var(--dark);
     margin-right: auto;
     border-bottom-left-radius: 4px;
 }
@@ -180,7 +193,7 @@ header {
     gap: 0.5rem;
     margin-bottom: 1rem;
     font-weight: 600;
-    color: #555;
+    color: var(--dark-gray);
 }
 
 .web-result-item {
@@ -188,11 +201,11 @@ header {
     padding: 0.75rem;
     background: white;
     border-radius: 6px;
-    border-left: 3px solid #667eea;
+    border-left: 3px solid var(--border-blue);
 }
 
 .web-result-title a {
-    color: #1a73e8;
+    color: var(--link-blue);
     text-decoration: none;
     font-weight: 500;
 }
@@ -202,13 +215,13 @@ header {
 }
 
 .web-result-url {
-    color: #006621;
+    color: var(--url-green);
     font-size: 0.9rem;
     margin: 0.25rem 0;
 }
 
 .web-result-snippet {
-    color: #545454;
+    color: var(--snippet-gray);
     font-size: 0.9rem;
     line-height: 1.4;
 }
@@ -244,7 +257,7 @@ header {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
-    color: white;
+    color: var(--white);
     cursor: pointer;
     transition: all 0.2s;
     font-size: 0.9rem;
@@ -284,11 +297,11 @@ header {
 }
 
 #sendButton {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--btn-grad-start), var(--btn-grad-end));
     border: none;
     border-radius: 12px;
     padding: 1rem;
-    color: white;
+    color: var(--white);
     cursor: pointer;
     transition: all 0.2s;
     display: flex;

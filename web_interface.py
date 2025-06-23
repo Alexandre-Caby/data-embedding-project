@@ -93,6 +93,99 @@ def chat():
     try:
         logger.info(f"Processing query: {message[:50]}{'...' if len(message) > 50 else ''}")
         
+        # Check for system operations first
+        query_lower = message.lower().strip()
+        if any(keyword in query_lower for keyword in [
+            'system info', 'system information', 'computer info',
+            'disk space', 'storage info', 'memory usage', 'ram usage',
+            'cpu usage', 'processor usage', 'list files', 'list directory',
+            'read file', 'show content', 'display file'
+        ]):
+            if "os_operations" in orchestrator.services:
+                try:
+                    os_result = orchestrator.services["os_operations"].process_command(message)
+                    
+                    # Format the OS result for display
+                    if os_result.get("success"):
+                        if os_result.get("command_type") == "system_info":
+                            context = f"**System Information:**\n\n"
+                            sys_info = os_result.get("system_info", {})
+                            context += f"- **System:** {sys_info.get('system', 'N/A')}\n"
+                            context += f"- **Node:** {sys_info.get('node', 'N/A')}\n"
+                            context += f"- **Release:** {sys_info.get('release', 'N/A')}\n"
+                            context += f"- **Machine:** {sys_info.get('machine', 'N/A')}\n"
+                            context += f"- **CPU Count:** {sys_info.get('cpu_count', 'N/A')}\n"
+                            context += f"- **Total Memory:** {sys_info.get('memory_total_human', 'N/A')}\n"
+                        
+                        elif os_result.get("command_type") == "list_directory":
+                            context = f"**Directory listing for:** {os_result.get('path', 'Unknown')}\n\n"
+                            contents = os_result.get("contents", {})
+                            directories = contents.get("directories", [])
+                            files = contents.get("files", [])
+                            
+                            if directories:
+                                context += "**Directories:**\n"
+                                for dir_item in directories:
+                                    context += f"📁 {dir_item['name']}\n"
+                                context += "\n"
+                            
+                            if files:
+                                context += "**Files:**\n"
+                                for file_item in files:
+                                    context += f"📄 {file_item['name']} ({file_item.get('size_human', 'Unknown size')})\n"
+                            
+                            context += f"\n**Total items:** {len(directories) + len(files)}"
+                        
+                        elif os_result.get("command_type") == "memory_usage":
+                            context = "**Memory Usage:**\n\n"
+                            mem_info = os_result.get("memory_info", {})
+                            context += f"- **Total:** {mem_info.get('total_human', 'N/A')}\n"
+                            context += f"- **Used:** {mem_info.get('used_human', 'N/A')} ({mem_info.get('percent_used', 'N/A')}%)\n"
+                            context += f"- **Available:** {mem_info.get('available_human', 'N/A')}\n"
+                            if mem_info.get('swap_total_human'):
+                                context += f"- **Swap Total:** {mem_info.get('swap_total_human', 'N/A')}\n"
+                                context += f"- **Swap Used:** {mem_info.get('swap_used_human', 'N/A')} ({mem_info.get('swap_percent_used', 'N/A')}%)\n"
+                        
+                        elif os_result.get("command_type") == "cpu_usage":
+                            context = "**CPU Usage:**\n\n"
+                            cpu_info = os_result.get("cpu_info", {})
+                            context += f"- **Overall Usage:** {cpu_info.get('percent', 'N/A')}%\n"
+                            if cpu_info.get('frequency'):
+                                freq = cpu_info['frequency']
+                                context += f"- **Current Frequency:** {freq.get('current', 'N/A')} MHz\n"
+                        
+                        elif os_result.get("command_type") == "disk_space":
+                            context = "**Disk Space:**\n\n"
+                            for disk in os_result.get("disk_info", []):
+                                context += f"**{disk.get('device', 'Unknown')}** ({disk.get('filesystem', 'Unknown')})\n"
+                                context += f"- **Total:** {disk.get('total_human', 'N/A')}\n"
+                                context += f"- **Used:** {disk.get('used_human', 'N/A')} ({disk.get('percent_used', 'N/A')}%)\n"
+                                context += f"- **Free:** {disk.get('free_human', 'N/A')}\n\n"
+                        
+                        elif os_result.get("command_type") == "write_file":
+                            context = f"**File Created Successfully!**\n\n"
+                            context += f"📄 **Filename:** `{os.path.basename(os_result.get('path', 'Unknown'))}`\n"
+                            context += f"📁 **Path:** `{os_result.get('path', 'Unknown')}`\n"
+                            context += f"📏 **Size:** {os_result.get('size_human', 'Unknown')}\n\n"
+                            context += f"The file has been created with your specified content."
+                        else:
+                            context = os_result.get("message", "Operation completed successfully")
+                    else:
+                        context = f"Error: {os_result.get('message', 'Unknown error occurred')}"
+                    
+                    return jsonify({
+                        "context": context,
+                        "retrieved_chunks": [],
+                        "system_info": os_result
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"OS operations error: {e}")
+                    return jsonify({
+                        "context": f"Error executing system operation: {str(e)}",
+                        "retrieved_chunks": []
+                    })
+        
         # Handle web search
         if message.lower().startswith(('search web', 'search for', 'find online')):
             logger.info("Detected web search query")
@@ -160,9 +253,8 @@ def chat():
                     "retrieved_chunks": []
                 })
         
-        # Process through orchestrator for non-search queries with enhanced quality
-        result = orchestrator.process_query(message, quality='high')  # Add quality parameter
-        logger.info(f"Query processed with services: {', '.join(result['results'].keys())}")
+        # Process through orchestrator for other queries
+        result = orchestrator.process_query(message, quality='high')
         
         # Prepare the response
         response = {

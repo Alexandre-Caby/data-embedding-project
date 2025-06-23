@@ -23,7 +23,7 @@ python main.py --mode web
 
 1. **Clone and navigate**:
    ```bash
-   git clone <your-repo>
+   git clone https://github.com/Alexandre-Caby/data-embedding-project
    cd data-embedding-project
    ```
 
@@ -82,8 +82,7 @@ python main.py --mode ingest --urls https://example.com --files document.txt
 │   └── script.js
 ├── config/                # All configuration files
 │   ├── data_sources.json      # Document sources
-│   ├── orchestrator_config.json # Service configuration
-│   └── sample_queries.json     # Sample queries by domain
+│   └── orchestrator_config.json # Service configuration
 ├── orchestrator.py        # Main orchestrator
 ├── rag_pipeline.py       # RAG implementation
 ├── web_interface.py      # Flask web app
@@ -127,16 +126,6 @@ Edit `config/orchestrator_config.json` (auto-generated with defaults):
     "allow_file_operations": true,
     "allow_process_execution": false
   }
-}
-```
-
-### Sample Queries
-Add domain-specific queries in `config/sample_queries.json`:
-```json
-{
-  "general": ["What are the main concepts?", "Summarize this content"],
-  "technology": ["What technologies are discussed?", "Explain the technical concepts"],
-  "science": ["What experiments are mentioned?", "What theories are explained?"]
 }
 ```
 

@@ -7,6 +7,7 @@ import logging
 import shutil
 from typing import Dict, Any, List, Optional, Union
 import json
+import re
 
 class OSOperationsService:
     """Service for handling OS-level operations safely."""
@@ -35,53 +36,68 @@ class OSOperationsService:
     def process_command(self, command: str) -> Dict[str, Any]:
         """
         Process a natural language command and route to the appropriate function.
-        
-        Args:
-            command: Natural language command describing the operation
-            
-        Returns:
-            Dict containing the operation result
+        Enhanced with multilingual support.
         """
-        command = command.lower().strip()
+        command_lower = command.lower().strip()
+        original_command = command.strip()
         
-        # File operations
-        if any(x in command for x in ["list files", "list directory", "show files"]):
-            path = self._extract_path_from_command(command)
-            return self.list_directory(path)
+        self.logger.info(f"Processing OS command: {command_lower}")
         
-        elif any(x in command for x in ["read file", "show content", "display file"]):
-            path = self._extract_path_from_command(command)
-            return self.read_file(path)
-        
-        elif any(x in command for x in ["write file", "create file", "save to file"]):
-            path = self._extract_path_from_command(command)
-            content = self._extract_content_from_command(command)
+        # File creation - ENHANCED MULTILINGUAL
+        if any(pattern in command_lower for pattern in [
+            # English patterns
+            "create file", "create a file", "write file", "make file", 
+            "new file", "save file", "create text file", "make text file",
+            "write a file", "make a text file", "create a text file",
+            "write hello", "hello world", "hello.txt",
+            # French patterns - ADDED
+            "créer fichier", "créer un fichier", "écrire fichier", 
+            "nouveau fichier", "sauvegarder fichier", "créer fichier texte",
+            "faire un fichier", "fichier avec", "avec", "contenant",
+            "bonjour monde"
+        ]):
+            self.logger.info("Detected file creation command")
+            path, content = self._extract_file_creation_info(original_command)
             return self.write_file(path, content)
         
-        elif any(x in command for x in ["delete file", "remove file"]):
-            path = self._extract_path_from_command(command)
+        # Original patterns follow...
+        elif any(x in command_lower for x in ["list files", "list directory", "show files"]):
+            path = self._extract_path_from_command(command_lower)
+            return self.list_directory(path)
+        
+        elif any(x in command_lower for x in ["read file", "show content", "display file"]):
+            path = self._extract_path_from_command(command_lower)
+            return self.read_file(path)
+        
+        elif any(x in command_lower for x in ["write file", "create file", "save to file"]):
+            path = self._extract_path_from_command(command_lower)
+            content = self._extract_content_from_command(command_lower)
+            return self.write_file(path, content)
+        
+        elif any(x in command_lower for x in ["delete file", "remove file"]):
+            path = self._extract_path_from_command(command_lower)
             return self.delete_file(path)
         
-        elif any(x in command for x in ["copy file", "duplicate file"]):
-            source, destination = self._extract_source_dest_from_command(command)
+        elif any(x in command_lower for x in ["copy file", "duplicate file"]):
+            source, destination = self._extract_source_dest_from_command(command_lower)
             return self.copy_file(source, destination)
         
         # System information
-        elif any(x in command for x in ["system info", "system information", "computer info"]):
+        elif any(x in command_lower for x in ["system info", "system information", "computer info"]):
             return self.get_system_info()
         
-        elif any(x in command for x in ["disk space", "storage info"]):
+        elif any(x in command_lower for x in ["disk space", "storage info"]):
             return self.get_disk_space()
         
-        elif any(x in command for x in ["memory usage", "ram usage"]):
+        elif any(x in command_lower for x in ["memory usage", "ram usage"]):
             return self.get_memory_usage()
         
-        elif any(x in command for x in ["cpu usage", "processor usage"]):
+        elif any(x in command_lower for x in ["cpu usage", "processor usage"]):
             return self.get_cpu_usage()
         
         # Process execution (if enabled)
-        elif any(x in command for x in ["run command", "execute command"]) and self.allow_process_execution:
-            cmd = command.split("run command", 1)[1].strip() if "run command" in command else command.split("execute command", 1)[1].strip()
+        elif any(x in command_lower for x in ["run command", "execute command"]) and self.allow_process_execution:
+            cmd = command_lower.split("run command", 1)[1].strip() if "run command" in command_lower else command_lower.split("execute command", 1)[1].strip()
             return self.execute_command(cmd)
         
         # Default response
@@ -663,3 +679,110 @@ class OSOperationsService:
             i += 1
         
         return f"{size_bytes:.2f} {size_names[i]}"
+    
+    def _extract_file_creation_info(self, command: str) -> tuple:
+        """
+        Extract filename and content from natural language file creation commands.
+        Improved with multilingual support (English and French).
+        """
+        command_lower = command.lower().strip()
+        
+        # Default values as last resort
+        filename = None
+        content = None
+        
+        self.logger.info(f"Extracting file info from: '{command}'")
+        
+        # CONTENT EXTRACTION - ENHANCED MULTILINGUAL
+        
+        # Check for quoted content (highest priority)
+        quote_matches = re.findall(r'["\']([^"\']+)["\']', command)
+        if quote_matches:
+            content = quote_matches[0]
+            self.logger.info(f"Found quoted content: '{content}'")
+        
+        # English patterns
+        elif "with" in command_lower and ("in it" in command_lower or "containing" in command_lower):
+            start_idx = command_lower.find("with") + 4
+            end_idx = command_lower.find("in it") if "in it" in command_lower else command_lower.find("containing")
+            if start_idx > 4 and end_idx > start_idx:
+                content = command[start_idx:end_idx].strip()
+        
+        # French patterns - ADDED
+        elif "avec" in command_lower:
+            start_idx = command_lower.find("avec") + 4
+            end_idx = len(command_lower)
+            # Look for end markers in French
+            for marker in ["dedans", "dans", "à l'intérieur"]:
+                if marker in command_lower[start_idx:]:
+                    end_idx = command_lower.find(marker, start_idx)
+                    break
+            content = command[start_idx:end_idx].strip()
+        
+        # Content after specific markers
+        elif "content:" in command_lower:
+            content = command.split("content:", 1)[1].strip()
+        elif "contenu:" in command_lower:  # French
+            content = command.split("contenu:", 1)[1].strip()
+        elif ":" in command and not any(marker in command_lower for marker in ["file:", "path:", "name:", "fichier:", "nom:"]):
+            parts = command.split(":", 1)
+            if len(parts) > 1:
+                content = parts[1].strip()
+        
+        # Look for content after "containing" or "contenant" (French)
+        elif "containing" in command_lower:
+            content = command.split("containing", 1)[1].strip()
+        elif "contenant" in command_lower:
+            content = command.split("contenant", 1)[1].strip()
+        
+        # FILENAME EXTRACTION - ENHANCED MULTILINGUAL
+        
+        # Check for explicit filename specifiers
+        if "file:" in command_lower:
+            filename_part = command.split("file:", 1)[1].strip()
+            filename = filename_part.split()[0]
+        elif "fichier:" in command_lower:  # French
+            filename_part = command.split("fichier:", 1)[1].strip()
+            filename = filename_part.split()[0]
+        elif "name:" in command_lower:
+            filename_part = command.split("name:", 1)[1].strip()
+            filename = filename_part.split()[0]
+        elif "nom:" in command_lower:  # French
+            filename_part = command.split("nom:", 1)[1].strip()
+            filename = filename_part.split()[0]
+        
+        # Common phrases indicating filename
+        elif "called" in command_lower:
+            called_idx = command_lower.find("called") + 6
+            filename_part = command[called_idx:].strip().split()[0]
+            if filename_part:
+                filename = filename_part
+        elif "named" in command_lower:
+            named_idx = command_lower.find("named") + 5
+            filename_part = command[named_idx:].strip().split()[0]
+            if filename_part:
+                filename = filename_part
+        # French variants - ADDED
+        elif "appelé" in command_lower or "nommé" in command_lower:
+            idx = command_lower.find("appelé") if "appelé" in command_lower else command_lower.find("nommé")
+            idx += 6  # Length of "appelé" or "nommé"
+            filename_part = command[idx:].strip().split()[0]
+            if filename_part:
+                filename = filename_part
+                
+        if content is None:
+            content = "Hello World"
+        
+        if filename is None:
+            filename = "hello.txt"
+        
+        # Clean up extracted values
+        filename = filename.strip('"\'.,;: ')
+        content = content.strip('"\'.,;: ')
+        
+        # Ensure filename has an extension
+        if "." not in filename:
+            filename = filename + ".txt"
+        
+        self.logger.info(f"Final extracted: filename='{filename}', content='{content[:20]}...'")
+        return filename, content
