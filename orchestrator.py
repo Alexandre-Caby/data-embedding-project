@@ -529,20 +529,22 @@ class AIServicesOrchestrator:
             # Log each document's content length
             for i, doc in enumerate(documents):
                 self.logger.info(f"Document {i+1}: {len(doc.content)} characters from {doc.metadata.get('url', 'unknown')}")
-
-                # Adding the data to ingest into RAG
-                if "rag" in self.services:
-                    try:
-                        self.services["rag"].ingest_data(
-                            urls=[doc.metadata.get('url')],
-                            file_paths=None,
-                            documents=[doc]
-                        )
-                        self.logger.info(f"Document {i+1} ingested into RAG successfully")
-                    except Exception as e:
-                        self.logger.error(f"Error ingesting document into RAG: {e}")
             
             self.logger.info(f"Successfully scraped {len(documents)} documents from web search results")
+            
+            self.logger.info(f"Ingesting {len(documents)} web documents into RAG...")
+            if "rag" in self.services and documents:
+                try:
+                    # On récupère la liste des URLs des documents web
+                    urls_to_ingest = [doc.metadata.get('url') for doc in documents if doc.metadata.get('url')]
+                    self.services["rag"].ingest_data(
+                        urls=urls_to_ingest,
+                        file_paths=None
+                    )
+                    self.logger.info(f"Ingested {len(urls_to_ingest)} web documents into RAG successfully")
+                except Exception as e:
+                    self.logger.error(f"Error ingesting web documents into RAG: {e}")
+                    
             return documents
         except Exception as e:
             self.logger.error(f"Error processing web search results: {e}")

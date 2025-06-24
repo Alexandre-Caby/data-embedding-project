@@ -19,9 +19,10 @@ class FileDataLoader(DataLoader):
         try:
             ext = os.path.splitext(file_path)[1].lower()
             content = ""
-            if ext in [".txt", ".md", ".cjsonsv", "."]:
+            if ext in [".txt", ".md", ".csv", "."]:
                 with open(file_path, 'r', encoding='utf-8') as file:
                     content = file.read()
+                    print(f"Loaded {file_path} with {len(content)} characters.")
             elif ext == ".pdf":
                 try:
                     with open(file_path, "rb") as f:
