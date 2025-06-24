@@ -18,8 +18,15 @@
     "https://www.kaggle.com/",
     "https://www.researchgate.net/",
     "https://www.arxiv.org/",
-    "https://www.sciencedirect.com/"
+    "https://www.sciencedirect.com/",
+    "https://github.com/Thecoolsim/French-Scrabble-ODS8/blob/main/French%20ODS%20dictionary.txt",
+    "https://raw.githubusercontent.com/dwyl/english-words/refs/heads/master/words.txt",
+    "https://pldb.io/pldb.csv"
   ],
   "file_paths": [
+    "C:\\Users\\alexa\\Downloads\\worldcitiespop.csv",
+    "C:\\Users\\alexa\\Downloads\\s41597-022-01369-4.pdf",
+    "C:\\Users\\alexa\\Downloads\\s41467-024-51087-1.pdf",
+    "C:\\Users\\alexa\\Downloads\\philosophy_data.csv"
   ]
 }

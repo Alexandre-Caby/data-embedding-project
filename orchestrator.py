@@ -529,6 +529,18 @@ class AIServicesOrchestrator:
             # Log each document's content length
             for i, doc in enumerate(documents):
                 self.logger.info(f"Document {i+1}: {len(doc.content)} characters from {doc.metadata.get('url', 'unknown')}")
+
+                # Adding the data to ingest into RAG
+                if "rag" in self.services:
+                    try:
+                        self.services["rag"].ingest_data(
+                            urls=[doc.metadata.get('url')],
+                            file_paths=None,
+                            documents=[doc]
+                        )
+                        self.logger.info(f"Document {i+1} ingested into RAG successfully")
+                    except Exception as e:
+                        self.logger.error(f"Error ingesting document into RAG: {e}")
             
             self.logger.info(f"Successfully scraped {len(documents)} documents from web search results")
             return documents
