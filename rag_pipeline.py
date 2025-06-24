@@ -184,9 +184,6 @@ class RAGPipeline:
         # Add to vector store
         self.vector_store.add_chunks(all_chunks)
 
-        # Call the load method to ensure embeddings are stored
-        self.load(self.config.output_directory)
-        
         return all_chunks
 
     def _generate_embeddings(self, chunks: List[Chunk]) -> None:

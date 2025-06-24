@@ -96,13 +96,13 @@ class AIServicesOrchestrator:
         logger.setLevel(logging.INFO)
         
         # Create handler if not exists
-        if not logger.handlers:
+        if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
             handler = logging.StreamHandler()
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             logger.addHandler(handler)
-            
-            # Add file handler
+
+        if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
             os.makedirs("logs", exist_ok=True)
             file_handler = logging.FileHandler("logs/orchestrator.log")
             file_handler.setFormatter(formatter)
@@ -541,10 +541,11 @@ class AIServicesOrchestrator:
                         urls=urls_to_ingest,
                         file_paths=None
                     )
+                    # Reload the RAG service to ensure it has the latest data
+                    self.services["rag"].load(self.config.get("rag", {}).get("data_dir", "data"))
                     self.logger.info(f"Ingested {len(urls_to_ingest)} web documents into RAG successfully")
                 except Exception as e:
                     self.logger.error(f"Error ingesting web documents into RAG: {e}")
-                    
             return documents
         except Exception as e:
             self.logger.error(f"Error processing web search results: {e}")
